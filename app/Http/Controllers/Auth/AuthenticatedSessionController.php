@@ -33,6 +33,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $user = $request->user();
+        if ($user->hasRole('property-custodian')) {
+            return redirect()->intended(route('dashboard.property-custodian', absolute: false));
+        } elseif ($user->hasRole('vp-finance')) {
+            return redirect()->intended(route('dashboard.vp-finance', absolute: false));
+        } elseif ($user->hasRole('department-head')) {
+            return redirect()->intended(route('dashboard.department-head', absolute: false));
+        } elseif ($user->hasRole('admin')) {
+            return redirect()->intended(route('dashboard.admin', absolute: false));
+        }
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
