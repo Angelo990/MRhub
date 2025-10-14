@@ -17,7 +17,7 @@ class UserController extends Controller
     {
         $users = User::with('roles')->get();
         $roles = Role::all();
-        return Inertia::render('Admin/Users/Index', compact('users', 'roles'));
+        return Inertia::render('Admin/ManageUsers', compact('users', 'roles'));
     }
 
     // Show create user form
