@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { usePage } from '@inertiajs/react';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Role {
 	id: number;
@@ -31,28 +32,115 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const ManageUser: React.FC = () => {
-	const { users, roles } = usePage<PageProps>().props;
+	const { users } = usePage<PageProps>().props;
+	const [showModal, setShowModal] = useState(false);
+	const [editMode, setEditMode] = useState(false);
+	const [roles, setRoles] = useState<Role[]>([]);
+	const [form, setForm] = useState({ id: null as number | null, name: '', email: '', password: '', roles: [] as number[] });
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
-	const handleDelete = (id: number) => {
+	const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+	const handleDelete = async (id: number) => {
 		if (window.confirm('Are you sure you want to delete this user?')) {
-			// Replace with your own delete logic (e.g., fetch/axios)
-			window.location.href = `/admin/users/${id}/delete`;
+			setLoading(true);
+			setError(null);
+			const res = await fetch(`/admin/users/${id}`, {
+				method: 'DELETE',
+				credentials: 'same-origin',
+				headers: {
+					'X-CSRF-TOKEN': token,
+					'Accept': 'application/json',
+				},
+			});
+			setLoading(false);
+			if (res.ok) {
+				window.location.reload();
+			} else {
+				setError('Failed to delete user.');
+			}
+		}
+	};
+
+	const openModal = async (user?: User) => {
+		setLoading(true);
+		setError(null);
+		const res = await fetch('/admin/users/create', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+		const data = await res.json();
+		setRoles(data.roles);
+		if (user) {
+			setEditMode(true);
+			setForm({
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				password: '',
+				roles: user.roles.map(r => r.id),
+			});
+		} else {
+			setEditMode(false);
+			setForm({ id: null, name: '', email: '', password: '', roles: [] });
+		}
+		setLoading(false);
+		setShowModal(true);
+	};
+
+	const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+		const { name, value, type } = e.target;
+		if (type === 'checkbox') {
+			const checked = (e.target as HTMLInputElement).checked;
+			setForm((prev) => {
+				const roleId = parseInt(value);
+				return {
+					...prev,
+					roles: checked
+						? [...prev.roles, roleId]
+						: prev.roles.filter((id) => id !== roleId),
+				};
+			});
+		} else {
+			setForm((prev) => ({ ...prev, [name]: value }));
+		}
+	};
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setLoading(true);
+		setError(null);
+		const url = editMode && form.id ? `/admin/users/${form.id}` : '/admin/users';
+		const method = editMode ? 'PUT' : 'POST';
+		const res = await fetch(url, {
+			method,
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/json',
+				'Accept': 'application/json',
+				'X-CSRF-TOKEN': token,
+			},
+			body: JSON.stringify(form),
+		});
+		setLoading(false);
+		if (res.ok) {
+			setShowModal(false);
+			window.location.reload();
+		} else {
+			const err = await res.json().catch(() => ({}));
+			setError(err.message || 'Failed to save user.');
 		}
 	};
 
 	return (
 		<AppLayout breadcrumbs={breadcrumbs}>
-			<div className="flex flex-col gap-4 p-4">
+			<div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
 				<div className="flex items-center justify-between mb-2">
 					<h1 className="text-2xl font-bold">User Management</h1>
-								<a href="/admin/users/create">
-									<Button variant="default">Add User</Button>
-								</a>
+					<Button variant="default" onClick={() => openModal()}>Add User</Button>
 				</div>
-				<div className="overflow-x-auto rounded-xl shadow">
-					<table className="min-w-full bg-white">
+				<div className="overflow-x-auto rounded-xl shadow dark:bg-gray-800">
+					<table className="min-w-full bg-white dark:bg-gray-900">
 						<thead>
-							<tr className="bg-gray-50">
+							<tr className="bg-gray-50 dark:bg-gray-800">
 								<th className="py-2 px-4 text-left">Name</th>
 								<th className="py-2 px-4 text-left">Email</th>
 								<th className="py-2 px-4 text-left">Roles</th>
@@ -60,30 +148,88 @@ const ManageUser: React.FC = () => {
 							</tr>
 						</thead>
 						<tbody>
-											{users.map((user: User) => (
-												<tr key={user.id} className="border-b">
-													<td className="py-2 px-4">{user.name}</td>
-													<td className="py-2 px-4">{user.email}</td>
-													<td className="py-2 px-4">
-														{user.roles.length > 0 ? (
-															user.roles.map((role: Role) => (
-																<Badge key={role.id} className="mr-1" variant="secondary">{role.name}</Badge>
-															))
-														) : (
-															<span className="text-gray-400">No roles</span>
-														)}
-													</td>
-													<td className="py-2 px-4">
-																			<a href={`/admin/users/${user.id}/edit`} className="mr-2">
-																				<Button size="sm" variant="outline">Edit</Button>
-																			</a>
-														<Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>Delete</Button>
-													</td>
-												</tr>
-											))}
+							{users.map((user: User) => (
+								<tr key={user.id} className="border-b dark:border-gray-700">
+									<td className="py-2 px-4">{user.name}</td>
+									<td className="py-2 px-4">{user.email}</td>
+									<td className="py-2 px-4">
+										{user.roles.length > 0 ? (
+											user.roles.map((role: Role) => (
+												<Badge key={role.id} className="mr-1" variant="secondary">{role.name}</Badge>
+											))
+										) : (
+											<span className="text-gray-400">No roles</span>
+										)}
+									</td>
+									<td className="py-2 px-4">
+										<Button size="sm" variant="outline" className="mr-2" onClick={() => openModal(user)}>Edit</Button>
+										<Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>Delete</Button>
+									</td>
+								</tr>
+							))}
 						</tbody>
 					</table>
 				</div>
+				{/* Modal for create/edit user */}
+				<Dialog open={showModal} onOpenChange={setShowModal}>
+					<DialogContent className="max-w-md w-full dark:bg-gray-900 dark:text-white">
+						<DialogHeader>
+							<DialogTitle>{editMode ? 'Edit User' : 'Add User'}</DialogTitle>
+						</DialogHeader>
+						{error && <div className="text-red-500 mb-2">{error}</div>}
+						<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+							<input
+								type="text"
+								name="name"
+								placeholder="Name"
+								value={form.name}
+								onChange={handleFormChange}
+								className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+								required
+							/>
+							<input
+								type="email"
+								name="email"
+								placeholder="Email"
+								value={form.email}
+								onChange={handleFormChange}
+								className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+								required
+							/>
+							<input
+								type="password"
+								name="password"
+								placeholder="Password"
+								value={form.password}
+								onChange={handleFormChange}
+								className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+								required={!editMode}
+							/>
+							<div>
+								<label className="block mb-2">Roles</label>
+								<div className="flex flex-wrap gap-2">
+									{roles.map((role) => (
+										<label key={role.id} className="flex items-center gap-1">
+											<input
+												type="checkbox"
+												name="roles"
+												value={role.id}
+												checked={form.roles.includes(role.id)}
+												onChange={handleFormChange}
+												className="dark:bg-gray-800"
+											/>
+											<span>{role.name}</span>
+										</label>
+									))}
+								</div>
+							</div>
+							<div className="flex justify-end gap-2">
+								<Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+								<Button type="submit" variant="default" disabled={loading}>{editMode ? 'Update' : 'Create'}</Button>
+							</div>
+						</form>
+					</DialogContent>
+				</Dialog>
 			</div>
 		</AppLayout>
 	);
