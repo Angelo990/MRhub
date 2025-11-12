@@ -24,7 +24,7 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::all();
-        return Inertia::render('Admin/Users/Create', compact('roles'));
+        return response()->json(['roles' => $roles]);
     }
 
     // Store new user
@@ -71,6 +71,9 @@ class UserController extends Controller
         }
         $user->save();
         $user->syncRoles($data['roles'] ?? []);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'user' => $user]);
+        }
         return Redirect::route('admin.users.index');
     }
 
@@ -78,6 +81,9 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $user->delete();
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
         return Redirect::route('admin.users.index');
     }
 }
