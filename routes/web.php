@@ -44,7 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::group(['middleware' => ['role:admin']], function () {
         // User management CRUD routes
         Route::prefix('admin/users')->name('admin.users.')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('ManageUsers');
+            Route::get('/', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('index');
             Route::get('/create', [\App\Http\Controllers\Admin\UserController::class, 'create'])->name('create');
             Route::post('/', [\App\Http\Controllers\Admin\UserController::class, 'store'])->name('store');
             Route::get('/{user}/edit', [\App\Http\Controllers\Admin\UserController::class, 'edit'])->name('edit');
