@@ -15,16 +15,18 @@ class UserController extends Controller
     // List all users
     public function index()
     {
-        $users = User::with('roles')->get();
-        $roles = Role::all();
-        return Inertia::render('Admin/ManageUsers', compact('users', 'roles'));
+    $users = User::with(['roles', 'department'])->get();
+    $roles = Role::all();
+    $departments = \App\Models\Department::all();
+    return Inertia::render('Admin/ManageUsers', compact('users', 'roles', 'departments'));
     }
 
     // Show create user form
     public function create()
     {
-        $roles = Role::all();
-        return response()->json(['roles' => $roles]);
+    $roles = Role::all();
+    $departments = \App\Models\Department::all();
+    return response()->json(['roles' => $roles, 'departments' => $departments]);
     }
 
     // Store new user
@@ -35,11 +37,13 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
             'roles' => 'array',
+            'department_id' => 'nullable|exists:departments,id',
         ]);
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'department_id' => $data['department_id'] ?? null,
         ]);
         if (!empty($data['roles'])) {
             $user->syncRoles($data['roles']);
@@ -63,12 +67,14 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8',
             'roles' => 'array',
+            'department_id' => 'nullable|exists:departments,id',
         ]);
         $user->name = $data['name'];
         $user->email = $data['email'];
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }
+        $user->department_id = $data['department_id'] ?? null;
         $user->save();
         $user->syncRoles($data['roles'] ?? []);
         if ($request->expectsJson()) {
