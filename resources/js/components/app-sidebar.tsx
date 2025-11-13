@@ -18,7 +18,7 @@ function getRoleNavItems(role: string): NavItem[] {
         case 'property-custodian':
             return [
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-                { title: 'Inventory', href: '/inventory', icon: ClipboardList },
+                { title: 'Inventory', href: '/property-custodian/items', icon: ClipboardList },
                 { title: 'Requests', href: '/requests', icon: ShieldCheck },
             ];
         case 'vp-finance':
