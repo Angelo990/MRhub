@@ -12,16 +12,23 @@ interface Role {
 	name: string;
 }
 
+interface Department {
+	id: number;
+	name: string;
+}
+
 interface User {
 	id: number;
 	name: string;
 	email: string;
 	roles: Role[];
+	department?: Department;
 }
 
 interface PageProps {
 	users: User[];
 	roles: Role[];
+	departments: Department[];
 	[key: string]: any;
 }
 
@@ -31,12 +38,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 	{ title: 'User Management', href: '/admin/users' },
 ];
 
+
 const ManageUser: React.FC = () => {
-	const { users } = usePage<PageProps>().props;
+	const { users, departments } = usePage<PageProps>().props;
 	const [showModal, setShowModal] = useState(false);
 	const [editMode, setEditMode] = useState(false);
 	const [roles, setRoles] = useState<Role[]>([]);
-	const [form, setForm] = useState({ id: null as number | null, name: '', email: '', password: '', roles: [] as number[] });
+	const [modalDepartments, setModalDepartments] = useState<Department[]>(departments || []);
+	const [form, setForm] = useState({ id: null as number | null, name: '', email: '', password: '', roles: [] as number[], department_id: '' });
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +61,7 @@ const ManageUser: React.FC = () => {
 				headers: {
 					'X-CSRF-TOKEN': token,
 					'Accept': 'application/json',
+					'X-Requested-With': 'XMLHttpRequest',
 				},
 			});
 			setLoading(false);
@@ -69,6 +79,7 @@ const ManageUser: React.FC = () => {
 		const res = await fetch('/admin/users/create', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
 		const data = await res.json();
 		setRoles(data.roles);
+		setModalDepartments(data.departments);
 		if (user) {
 			setEditMode(true);
 			setForm({
@@ -77,10 +88,11 @@ const ManageUser: React.FC = () => {
 				email: user.email,
 				password: '',
 				roles: user.roles.map(r => r.id),
+				department_id: user.department?.id ? String(user.department.id) : '',
 			});
 		} else {
 			setEditMode(false);
-			setForm({ id: null, name: '', email: '', password: '', roles: [] });
+			setForm({ id: null, name: '', email: '', password: '', roles: [], department_id: '' });
 		}
 		setLoading(false);
 		setShowModal(true);
@@ -104,6 +116,12 @@ const ManageUser: React.FC = () => {
 		}
 	};
 
+	// Helper to check if department head role is selected
+	const isDepartmentHead = () => {
+		const deptHeadRole = roles.find(r => r.name === 'department-head');
+		return deptHeadRole ? form.roles.includes(deptHeadRole.id) : false;
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
@@ -117,6 +135,7 @@ const ManageUser: React.FC = () => {
 				'Content-Type': 'application/json',
 				'Accept': 'application/json',
 				'X-CSRF-TOKEN': token,
+				'X-Requested-With': 'XMLHttpRequest',
 			},
 			body: JSON.stringify(form),
 		});
@@ -144,6 +163,7 @@ const ManageUser: React.FC = () => {
 								<th className="py-2 px-4 text-left">Name</th>
 								<th className="py-2 px-4 text-left">Email</th>
 								<th className="py-2 px-4 text-left">Roles</th>
+								<th className="py-2 px-4 text-left">Department</th>
 								<th className="py-2 px-4 text-left">Actions</th>
 							</tr>
 						</thead>
@@ -160,6 +180,9 @@ const ManageUser: React.FC = () => {
 										) : (
 											<span className="text-gray-400">No roles</span>
 										)}
+									</td>
+									<td className="py-2 px-4">
+										{user.department ? user.department.name : <span className="text-gray-400">-</span>}
 									</td>
 									<td className="py-2 px-4">
 										<Button size="sm" variant="outline" className="mr-2" onClick={() => openModal(user)}>Edit</Button>
@@ -223,6 +246,24 @@ const ManageUser: React.FC = () => {
 									))}
 								</div>
 							</div>
+							{/* Department dropdown only if department head role is selected */}
+							{isDepartmentHead() && (
+								<div>
+									<label className="block mb-2">Department</label>
+									<select
+										name="department_id"
+										value={form.department_id}
+										onChange={handleFormChange}
+										className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+										required
+									>
+										<option value="">Select department</option>
+										{modalDepartments.map((dept) => (
+											<option key={dept.id} value={dept.id}>{dept.name}</option>
+										))}
+									</select>
+								</div>
+							)}
 							<div className="flex justify-end gap-2">
 								<Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
 								<Button type="submit" variant="default" disabled={loading}>{editMode ? 'Update' : 'Create'}</Button>
