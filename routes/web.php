@@ -52,6 +52,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{user}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('destroy');
         });
     });
+
+    /* -- Property Custodian Routes -- */
+    Route::group(['middleware' => ['role:property-custodian']], function () {
+        // Inventory management CRUD for items
+        Route::prefix('property-custodian/items')->name('property-custodian.items.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'store'])->name('store');
+            Route::put('/{item}', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'update'])->name('update');
+            Route::delete('/{item}', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'destroy'])->name('destroy');
+        });
+    });
 });
 
 require __DIR__.'/settings.php';
