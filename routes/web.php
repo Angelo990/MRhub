@@ -62,6 +62,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{item}', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'update'])->name('update');
             Route::delete('/{item}', [\App\Http\Controllers\PropertyCustodian\ItemController::class, 'destroy'])->name('destroy');
         });
+        // Request endorsement and delivery receipt
+        Route::prefix('property-custodian/requests')->name('property-custodian.requests.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\PropertyCustodian\RequestApprovalController::class, 'index'])->name('index');
+            Route::post('/{request}/endorse', [\App\Http\Controllers\PropertyCustodian\RequestApprovalController::class, 'endorse'])->name('endorse');
+            Route::post('/{request}/delivery-receipt', [\App\Http\Controllers\PropertyCustodian\DeliveryReceiptController::class, 'store'])->name('delivery_receipt');
+        });
+    });
+
+    /* -- VP Finance Routes -- */
+    Route::group(['middleware' => ['role:vp-finance']], function () {
+        // Request approval
+        Route::prefix('vp-finance/requests')->name('vp-finance.requests.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\VPFinance\RequestApprovalController::class, 'index'])->name('index');
+            Route::post('/{request}/approve', [\App\Http\Controllers\VPFinance\RequestApprovalController::class, 'approve'])->name('approve');
+            Route::post('/{request}/reject', [\App\Http\Controllers\VPFinance\RequestApprovalController::class, 'reject'])->name('reject');
+        });
+    });
+
+    /* -- Department Head Routes -- */
+    Route::group(['middleware' => ['role:department-head']], function () {
+        // Request creation and viewing
+        Route::prefix('department-head/requests')->name('department-head.requests.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'index'])->name('index');
+            Route::get('/create', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'store'])->name('store');
+            Route::post('/{request}/received', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'markReceived'])->name('received');
+        });
     });
 });
 
