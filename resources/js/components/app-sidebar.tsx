@@ -19,18 +19,18 @@ function getRoleNavItems(role: string): NavItem[] {
             return [
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
                 { title: 'Inventory', href: '/property-custodian/items', icon: ClipboardList },
-                { title: 'Requests', href: '/requests', icon: ShieldCheck },
+                { title: 'Requests', href: '/property-custodian/requests', icon: ShieldCheck },
             ];
         case 'vp-finance':
             return [
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-                { title: 'Finance', href: '/finance', icon: Briefcase },
-                { title: 'Requests', href: '/requests', icon: ShieldCheck },
+                // { title: 'Finance', href: '/finance', icon: Briefcase },
+                { title: 'Requests', href: '/vp-finance/requests', icon: ShieldCheck },
             ];
         case 'department-head':
             return [
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-                { title: 'My Requests', href: '/my-requests', icon: ClipboardList },
+                { title: 'My Requests', href: '/department-head/requests', icon: ClipboardList },
             ];
         default:
             return [
