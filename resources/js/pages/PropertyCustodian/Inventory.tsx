@@ -16,7 +16,6 @@ interface Item {
 
 interface PageProps {
     items: Item[];
-    [key: string]: any;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -25,7 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const Inventory: React.FC = () => {
-    const { items } = usePage<PageProps>().props;
+    const { items } = (usePage().props as unknown as PageProps);
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [form, setForm] = useState({ id: null as number | null, name: '', quantity: '', unit_price: '' });
