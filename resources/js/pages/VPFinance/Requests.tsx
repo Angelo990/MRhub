@@ -25,11 +25,9 @@ interface Request {
 }
 interface PageProps {
     requests: Request[];
-    [key: string]: any;
 }
 
-export default function Requests() {
-    const { requests } = usePage<PageProps>().props;
+    const { requests } = (usePage().props as unknown as PageProps);
     const handleApprove = (id: number) => {
         router.post(`/vp-finance/requests/${id}/approve`);
     };
