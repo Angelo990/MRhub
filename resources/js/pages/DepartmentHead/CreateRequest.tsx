@@ -39,7 +39,6 @@ export default function CreateRequest() {
     const auth: AuthProps | undefined = (page.props as any).auth;
     const today = new Date().toISOString().slice(0, 10);
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
-    const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
     const requestedBy = auth?.user?.name || '';
     const [form, setForm] = useState({
         date: today,
