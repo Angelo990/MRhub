@@ -43,9 +43,18 @@ const footerNavItems: NavItem[] = [
     //removed footer items
 ];
 
+interface AuthUser {
+    roles: { name: string }[];
+    [key: string]: unknown;
+}
+interface AuthProps {
+    user?: AuthUser;
+    [key: string]: unknown;
+}
+
 export function AppSidebar() {
-    const { auth } = usePage().props as any;
-    const userRoles = auth?.user?.roles?.map((role: any) => role.name) || [];
+    const { auth } = usePage<{ auth?: AuthProps }>().props;
+    const userRoles = auth?.user?.roles?.map((role) => role.name) || [];
     const mainNavItems = getRoleNavItems(userRoles[0] || '');
 
     return (
