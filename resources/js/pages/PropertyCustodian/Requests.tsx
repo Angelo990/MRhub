@@ -33,11 +33,9 @@ interface Item {
 interface PageProps {
     requests: Request[];
     items: Item[];
-    [key: string]: any;
 }
 
-export default function Requests() {
-    const { requests, items } = usePage<PageProps>().props;
+    const { requests, items } = (usePage().props as unknown as PageProps);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [receiptForm, setReceiptForm] = useState({
         delivery_date: new Date().toISOString().slice(0, 10),
@@ -74,7 +72,7 @@ export default function Requests() {
         setError(null);
         try {
             await router.post(`/property-custodian/requests/${id}/delivery-receipt`, receiptForm, {
-                onError: (errors: any) => {
+                onError: (errors: Record<string, string>) => {
                     setError(errors?.error || 'Failed to generate receipt.');
                 },
                 onSuccess: () => {
@@ -82,8 +80,12 @@ export default function Requests() {
                     setError(null);
                 },
             });
-        } catch (e: any) {
-            setError(e?.message || 'Failed to generate receipt.');
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError('Failed to generate receipt.');
+            }
         }
     };
     return (
