@@ -13,13 +13,38 @@ interface Item {
     name: string;
     unit_price: string;
 }
-interface PageProps {
+    interface Department {
+        id: number;
+        name: string;
+    }
+    interface Item {
+        id: number;
+        name: string;
+        unit_price: string;
+    }
+    interface PageProps {
+        departments: Department[];
+        items: Item[];
+        [key: string]: unknown;
+    }
     departments: Department[];
     items: Item[];
+        [key: string]: unknown;
+    [key: string]: unknown;
 }
 
 export default function CreateRequest() {
-    const { departments, items, auth } = usePage<{ [key: string]: any } & PageProps>().props;
+    interface AuthUser {
+        department_id?: string | number;
+        department?: { name: string };
+        name?: string;
+        [key: string]: unknown;
+    }
+    interface AuthProps {
+        user?: AuthUser;
+        [key: string]: unknown;
+    }
+    const { departments, items, auth } = usePage<PageProps & { auth?: AuthProps }>().props;
     const today = new Date().toISOString().slice(0, 10);
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
     const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
@@ -43,7 +68,8 @@ export default function CreateRequest() {
             setForm((prev) => {
                 const items = [...prev.items];
                 if (name === 'item_id') {
-                    const selectedItem = itemsList.find((i) => i.id === Number(value));
+                    const selectedItem = itemsList.find((i: Item) => i.id === Number(value));
+                                        const selectedItem = itemsList.find((i: Item) => i.id === Number(value));
                     items[idx] = {
                         ...items[idx],
                         item_id: value,
@@ -125,7 +151,8 @@ export default function CreateRequest() {
                                 <div key={idx} className="grid grid-cols-5 gap-2 items-center">
                                     <select name="item_id" value={item.item_id} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Select Item">
                                         <option value="">Select Item</option>
-                                        {itemsList.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                        {itemsList.map((i: Item) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                                                            {itemsList.map((i: Item) => <option key={i.id} value={i.id}>{i.name}</option>)}
                                     </select>
                                     <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
                                     <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
