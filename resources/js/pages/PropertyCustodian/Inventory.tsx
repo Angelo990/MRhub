@@ -1,4 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import {
+    useReactTable,
+    getCoreRowModel,
+    getSortedRowModel,
+    getFilteredRowModel,
+    flexRender,
+    SortingState,
+    ColumnDef,
+} from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
@@ -23,6 +32,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inventory', href: '/property-custodian/items' },
 ];
 
+
 const Inventory: React.FC = () => {
     const { items } = (usePage().props as unknown as PageProps);
     const [showModal, setShowModal] = useState(false);
@@ -30,6 +40,10 @@ const Inventory: React.FC = () => {
     const [form, setForm] = useState({ id: null as number | null, name: '', quantity: '', unit_price: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [globalFilter, setGlobalFilter] = useState('');
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [pageSize, setPageSize] = useState(10);
+    const [pageIndex, setPageIndex] = useState(0);
 
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
@@ -108,6 +122,64 @@ const Inventory: React.FC = () => {
         }
     };
 
+    // DataTable columns
+    const columns = useMemo<ColumnDef<Item, any>[]>(() => [
+        {
+            accessorKey: 'name',
+            header: () => (
+                <span>Name</span>
+            ),
+            cell: info => info.getValue(),
+        },
+        {
+            accessorKey: 'quantity',
+            header: () => (
+                <span>Quantity</span>
+            ),
+            cell: info => info.getValue(),
+        },
+        {
+            accessorKey: 'unit_price',
+            header: () => (
+                <span>Unit Price</span>
+            ),
+            cell: info => `₱ ${info.getValue()}`,
+        },
+        {
+            id: 'actions',
+            header: () => <span>Actions</span>,
+            cell: ({ row }) => (
+                <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openModal(row.original)}>Edit</Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleDelete(row.original.id)}>Delete</Button>
+                </div>
+            ),
+            enableSorting: false,
+        },
+    ], []);
+
+    const table = useReactTable({
+        data: items,
+        columns,
+        state: {
+            sorting,
+            globalFilter,
+        },
+        onSortingChange: setSorting,
+        onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    });
+
+    // Pagination helpers
+    const pageRows = useMemo(() => {
+        const start = pageIndex * pageSize;
+        return table.getRowModel().rows.slice(start, start + pageSize);
+    }, [table, pageIndex, pageSize]);
+
+    const pageCount = Math.ceil(table.getRowModel().rows.length / pageSize);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory" />
@@ -116,32 +188,96 @@ const Inventory: React.FC = () => {
                     <h1 className="text-2xl font-bold">Inventory Management</h1>
                     <Button variant="default" onClick={() => openModal()}>Add Item</Button>
                 </div>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
+                    <div>
+                        Show
+                        <label className="mr-2" htmlFor="entries-select">Show</label>
+                        <select
+                            id="entries-select"
+                            className="mx-2 border rounded px-2 py-1 dark:bg-gray-800 dark:text-white"
+                            value={pageSize}
+                            onChange={e => {
+                                setPageSize(Number(e.target.value));
+                                setPageIndex(0);
+                            }}
+                            title="Show entries"
+                        >
+                            {[10, 25, 50, 100].map(size => (
+                                <option key={size} value={size}>{size}</option>
+                            ))}
+                        </select>
+                        entries
+                    </div>
+                    <input
+                        className="search-input border rounded px-2 py-1 dark:bg-gray-800 dark:text-white max-w-xs"
+                        placeholder="Search..."
+                        value={globalFilter ?? ''}
+                        onChange={e => {
+                            setGlobalFilter(e.target.value);
+                            setPageIndex(0);
+                        }}
+                    />
+                </div>
                 <div className="overflow-x-auto rounded-xl shadow dark:bg-gray-800">
                     <table className="min-w-full bg-white dark:bg-gray-900">
                         <thead>
-                            <tr className="bg-gray-50 dark:bg-gray-800">
-                                <th className="py-2 px-4 text-left">Name</th>
-                                <th className="py-2 px-4 text-left">Quantity</th>
-                                <th className="py-2 px-4 text-left">Unit Price</th>
-                                <th className="py-2 px-4 text-left">Actions</th>
-                            </tr>
+                            {table.getHeaderGroups().map(headerGroup => (
+                                <tr key={headerGroup.id} className="bg-gray-50 dark:bg-gray-800">
+                                    {headerGroup.headers.map(header => (
+                                        <th
+                                            key={header.id}
+                                            className="py-2 px-4 text-left relative"
+                                            colSpan={header.colSpan}
+                                        >
+                                            {header.isPlaceholder ? null : (
+                                                <div
+                                                    {...{
+                                                        className: header.column.getCanSort()
+                                                            ? 'cursor-pointer select-none flex items-center'
+                                                            : '',
+                                                        onClick: header.column.getToggleSortingHandler(),
+                                                    }}
+                                                >
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                    {header.column.getCanSort() && (
+                                                        <span className={`sort-arrows ml-1 ${header.column.getIsSorted() ? 'active' : ''}`}>
+                                                            <span className={`arrow-up${header.column.getIsSorted() === 'asc' ? ' active' : ''}`}></span>
+                                                            <span className={`arrow-down${header.column.getIsSorted() === 'desc' ? ' active' : ''}`}></span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            ))}
                         </thead>
                         <tbody>
-                            {items && items.length > 0 ? items.map((item: Item) => (
-                                <tr key={item.id} className="border-b dark:border-gray-700">
-                                    <td className="py-2 px-4">{item.name}</td>
-                                    <td className="py-2 px-4">{item.quantity}</td>
-                                    <td className="py-2 px-4">₱ {item.unit_price}</td>
-                                    <td className="py-2 px-4">
-                                        <Button size="sm" variant="outline" className="mr-2" onClick={() => openModal(item)}>Edit</Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>Delete</Button>
-                                    </td>
+                            {pageRows.length > 0 ? pageRows.map(row => (
+                                <tr key={row.id} className="border-b dark:border-gray-700">
+                                    {row.getVisibleCells().map(cell => (
+                                        <td key={cell.id} className="py-2 px-4">
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </td>
+                                    ))}
                                 </tr>
                             )) : (
-                                <tr><td colSpan={4} className="text-center py-4 text-gray-400">No items found.</td></tr>
+                                <tr><td colSpan={columns.length} className="text-center py-4 text-gray-400">No items found.</td></tr>
                             )}
                         </tbody>
                     </table>
+                </div>
+                {/* Pagination */}
+                <div className="flex justify-between items-center mt-2">
+                    <div>
+                        Page {pageIndex + 1} of {pageCount}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setPageIndex(0)} disabled={pageIndex === 0}>First</Button>
+                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0}>Prev</Button>
+                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}>Next</Button>
+                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1}>Last</Button>
+                    </div>
                 </div>
                 {/* Modal for create/edit item */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
