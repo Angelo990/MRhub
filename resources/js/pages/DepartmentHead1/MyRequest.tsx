@@ -31,7 +31,7 @@ interface PageProps {
 }
 
 export default function MyRequest() {
-    const { requests } = usePage<{ [key: string]: any } & PageProps>().props;
+    const { requests } = (usePage().props as unknown as PageProps);
     return (
         <AppLayout>
             <div className="max-w-4xl mx-auto p-4">
