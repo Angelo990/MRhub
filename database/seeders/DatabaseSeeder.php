@@ -23,13 +23,13 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
         ]);
 
-        $user = User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('12345678'),
-        ]);
+        // $user = User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        //     'password' => Hash::make('12345678'),
+        // ]);
 
         // Assign admin role to the test user
-        $user->assignRole('admin');
+        // $user->assignRole('admin');
     }
 }
