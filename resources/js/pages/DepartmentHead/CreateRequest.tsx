@@ -79,6 +79,35 @@ export default function CreateRequest() {
                     items[idx] = { ...items[idx], [name]: value };
                 }
                 return { ...prev, items };
+            // All interfaces/types should be defined ONCE at the top of the file
+            interface Department {
+                id: number;
+                name: string;
+            }
+
+            interface Item {
+                id: number;
+                name: string;
+                unit_price: string;
+            }
+
+            interface PageProps {
+                departments: Department[];
+                items: Item[];
+                [key: string]: unknown;
+            }
+
+            interface AuthUser {
+                department_id?: string | number;
+                department?: { name: string };
+                name?: string;
+                [key: string]: unknown;
+            }
+
+            interface AuthProps {
+                user?: AuthUser;
+                [key: string]: unknown;
+            }
             });
         } else {
             setForm((prev) => ({ ...prev, [name]: value }));
@@ -115,20 +144,22 @@ export default function CreateRequest() {
                             <label className="font-semibold" htmlFor="date">Date</label>
                             <input type="date" id="date" name="date" value={form.date} className="border rounded p-2 w-full" disabled title="Request Date" placeholder="Request Date" />
                         </div>
-                        <div>
-                            <label className="font-semibold" htmlFor="department">Department</label>
-                            <input type="text" id="department" name="department" value={departmentName} className="border rounded p-2 w-full" disabled title="Department" placeholder="Department" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="font-semibold" htmlFor="purpose">Purpose</label>
-                        <input type="text" id="purpose" name="purpose" placeholder="Purpose" value={form.purpose} onChange={handleFormChange} className="border rounded p-2 w-full" required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="font-semibold" htmlFor="requested_by">Requested by</label>
-                            <input type="text" id="requested_by" name="requested_by" value={requestedBy} className="border rounded p-2 w-full" disabled title="Requested by" placeholder="Requested by" />
-                        </div>
+                interface Department {
+                    id: number;
+                    name: string;
+                }
+
+                interface Item {
+                    id: number;
+                    name: string;
+                    unit_price: string;
+                }
+
+                interface PageProps {
+                    departments: Department[];
+                    items: Item[];
+                    [key: string]: unknown;
+                }
                         <div>
                             <label className="font-semibold" htmlFor="reviewed_by">Reviewed by (Property Custodian)</label>
                             <input type="text" id="reviewed_by" name="reviewed_by" value={form.reviewed_by} className="border rounded p-2 w-full" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
