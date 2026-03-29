@@ -31,7 +31,3 @@ interface Item {
     quantity: number;
     unit_price: number;
 }
-interface PageProps {
-    requests: Request[];
-    items: Item[];
-}

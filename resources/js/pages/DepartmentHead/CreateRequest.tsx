@@ -36,7 +36,7 @@ export default function CreateRequest() {
     const page = usePage();
     const departments: Department[] = Array.isArray(((page.props as unknown as PageProps).departments)) ? ((page.props as unknown as PageProps).departments) : [];
     const items: Item[] = Array.isArray(((page.props as unknown as PageProps).items)) ? ((page.props as unknown as PageProps).items) : [];
-    const auth: AuthProps | undefined = (page.props as any).auth;
+    const auth: AuthProps | undefined = (page.props as { auth?: AuthProps }).auth;
     const today = new Date().toISOString().slice(0, 10);
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
     const requestedBy = auth?.user?.name || '';
