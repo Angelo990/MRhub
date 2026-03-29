@@ -29,7 +29,6 @@ interface PageProps {
 	users: User[];
 	roles: Role[];
 	departments: Department[];
-	[key: string]: any;
 }
 
 
@@ -40,7 +39,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 
 const ManageUser: React.FC = () => {
-	const { users, departments } = usePage<PageProps>().props;
+	const { users, departments } = (usePage().props as unknown as PageProps);
 	const [showModal, setShowModal] = useState(false);
 	const [editMode, setEditMode] = useState(false);
 	const [roles, setRoles] = useState<Role[]>([]);
@@ -256,6 +255,7 @@ const ManageUser: React.FC = () => {
 										onChange={handleFormChange}
 										className="border rounded p-2 dark:bg-gray-800 dark:text-white"
 										required
+										title="Select department"
 									>
 										<option value="">Select department</option>
 										{modalDepartments.map((dept) => (
