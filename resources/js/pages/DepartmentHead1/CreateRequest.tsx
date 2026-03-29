@@ -19,7 +19,7 @@ interface PageProps {
 }
 
 const CreateRequest: React.FC = () => {
-    const { departments, items } = usePage<{ [key: string]: any } & PageProps>().props;
+    const { departments, items } = (usePage().props as unknown as PageProps);
     const [form, setForm] = useState({
         date: '',
         department_id: '',
