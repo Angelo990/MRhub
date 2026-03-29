@@ -8,43 +8,35 @@ interface Department {
     id: number;
     name: string;
 }
+
 interface Item {
     id: number;
     name: string;
     unit_price: string;
 }
-    interface Department {
-        id: number;
-        name: string;
-    }
-    interface Item {
-        id: number;
-        name: string;
-        unit_price: string;
-    }
-    interface PageProps {
-        departments: Department[];
-        items: Item[];
-        [key: string]: unknown;
-    }
+
+
+interface PageProps {
     departments: Department[];
     items: Item[];
-        [key: string]: unknown;
+}
+
+interface AuthUser {
+    department_id?: string | number;
+    department?: { name: string };
+    name?: string;
+}
+
+interface AuthProps {
+    user?: AuthUser;
     [key: string]: unknown;
 }
 
 export default function CreateRequest() {
-    interface AuthUser {
-        department_id?: string | number;
-        department?: { name: string };
-        name?: string;
-        [key: string]: unknown;
-    }
-    interface AuthProps {
-        user?: AuthUser;
-        [key: string]: unknown;
-    }
-    const { departments, items, auth } = usePage<PageProps & { auth?: AuthProps }>().props;
+    const page = usePage();
+    const departments: Department[] = Array.isArray(((page.props as unknown as PageProps).departments)) ? ((page.props as unknown as PageProps).departments) : [];
+    const items: Item[] = Array.isArray(((page.props as unknown as PageProps).items)) ? ((page.props as unknown as PageProps).items) : [];
+    const auth: AuthProps | undefined = (page.props as any).auth;
     const today = new Date().toISOString().slice(0, 10);
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
     const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
@@ -62,59 +54,29 @@ export default function CreateRequest() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, idx?: number) => {
         const { name, value } = e.target;
         if (typeof idx === 'number') {
             setForm((prev) => {
-                const items = [...prev.items];
+                const formItems = [...prev.items];
                 if (name === 'item_id') {
-                    const selectedItem = itemsList.find((i: Item) => i.id === Number(value));
-                                        const selectedItem = itemsList.find((i: Item) => i.id === Number(value));
-                    items[idx] = {
-                        ...items[idx],
+                    const selectedItem = items.find((item: Item) => item.id === Number(value));
+                    formItems[idx] = {
+                        ...formItems[idx],
                         item_id: value,
                         particular: selectedItem ? selectedItem.name : '',
                     };
                 } else {
-                    items[idx] = { ...items[idx], [name]: value };
+                    formItems[idx] = { ...formItems[idx], [name]: value };
                 }
-                return { ...prev, items };
-            // All interfaces/types should be defined ONCE at the top of the file
-            interface Department {
-                id: number;
-                name: string;
-            }
-
-            interface Item {
-                id: number;
-                name: string;
-                unit_price: string;
-            }
-
-            interface PageProps {
-                departments: Department[];
-                items: Item[];
-                [key: string]: unknown;
-            }
-
-            interface AuthUser {
-                department_id?: string | number;
-                department?: { name: string };
-                name?: string;
-                [key: string]: unknown;
-            }
-
-            interface AuthProps {
-                user?: AuthUser;
-                [key: string]: unknown;
-            }
+                return { ...prev, items: formItems };
             });
         } else {
             setForm((prev) => ({ ...prev, [name]: value }));
         }
     };
 
-    const itemsList = items || [];
     const addItem = () => {
         setForm((prev) => ({ ...prev, items: [...prev.items, { item_id: '', quantity: '', particular: '', unit: '' }] }));
     };
@@ -143,31 +105,6 @@ export default function CreateRequest() {
                         <div>
                             <label className="font-semibold" htmlFor="date">Date</label>
                             <input type="date" id="date" name="date" value={form.date} className="border rounded p-2 w-full" disabled title="Request Date" placeholder="Request Date" />
-                        </div>
-                interface Department {
-                    id: number;
-                    name: string;
-                }
-
-                interface Item {
-                    id: number;
-                    name: string;
-                    unit_price: string;
-                }
-
-                interface PageProps {
-                    departments: Department[];
-                    items: Item[];
-                    [key: string]: unknown;
-                }
-                        <div>
-                            <label className="font-semibold" htmlFor="reviewed_by">Reviewed by (Property Custodian)</label>
-                            <input type="text" id="reviewed_by" name="reviewed_by" value={form.reviewed_by} className="border rounded p-2 w-full" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="font-semibold" htmlFor="approved_by">Approved by (VP Finance)</label>
                             <input type="text" id="approved_by" name="approved_by" value={form.approved_by} className="border rounded p-2 w-full" disabled title="Approved by" placeholder="To be filled by VP Finance" />
                         </div>
                         <div>
@@ -182,8 +119,7 @@ export default function CreateRequest() {
                                 <div key={idx} className="grid grid-cols-5 gap-2 items-center">
                                     <select name="item_id" value={item.item_id} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Select Item">
                                         <option value="">Select Item</option>
-                                        {itemsList.map((i: Item) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                                                                            {itemsList.map((i: Item) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                        {items.map((i: Item) => <option key={i.id} value={i.id}>{i.name}</option>)}
                                     </select>
                                     <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
                                     <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
