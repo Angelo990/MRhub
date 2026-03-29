@@ -48,7 +48,7 @@ interface PageProps {
 }
 
 export default function MyRequest() {
-    const { requests, csrf_token } = usePage<{ [key: string]: any } & PageProps>().props;
+    const { requests, csrf_token } = (usePage().props as unknown as PageProps & { csrf_token: string });
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -68,8 +68,12 @@ export default function MyRequest() {
                 body: JSON.stringify({}),
             });
             window.location.reload();
-        } catch (e: any) {
-            setError(e?.message || 'Failed to mark as received.');
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError('Failed to mark as received.');
+            }
         }
         setLoading(false);
     };
@@ -160,7 +164,7 @@ export default function MyRequest() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {receipt.items?.map((item: any) => (
+                                                {receipt.items?.map((item: ReceiptItem) => (
                                                     <tr key={item.id}>
                                                         <td className="px-2 py-1">{item.particular}</td>
                                                         <td className="px-2 py-1">{item.quantity_delivered}</td>
