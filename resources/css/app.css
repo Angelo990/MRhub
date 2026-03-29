@@ -1,3 +1,15 @@
+/* 404 Not Found page styles */
+.not-found-page {
+    text-align: center;
+    margin-top: 10vh;
+}
+.not-found-page h1 {
+    font-size: 3rem;
+    color: #e53e3e;
+}
+.not-found-page p {
+    font-size: 1.5rem;
+}
 @import 'tailwindcss';
 
 @plugin 'tailwindcss-animate';
