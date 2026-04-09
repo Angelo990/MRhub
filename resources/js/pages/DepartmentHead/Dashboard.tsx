@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, recentRequests } = usePage<SharedData & {
+    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, recentRequests, filters } = usePage<SharedData & {
         departmentName: string;
         stats: {
             totalRequests: number;
@@ -39,6 +40,10 @@ export default function Dashboard() {
             estimatedValue: number;
             canMarkReceived: boolean;
         }>;
+        filters: {
+            from: string | null;
+            to: string | null;
+        };
     }>().props;
 
     const chartColors = ['#14532d', '#1d4ed8', '#0f766e', '#7c3aed', '#be123c', '#c2410c'];
@@ -47,6 +52,8 @@ export default function Dashboard() {
     const [editMode, setEditMode] = useState(false);
     const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
     const [chartOrder, setChartOrder] = useState(chartIds);
+    const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
+    const [filterTo, setFilterTo] = useState(filters.to ?? '');
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
         'requests-by-status': true,
         'monthly-request-activity': true,
@@ -99,6 +106,94 @@ export default function Dashboard() {
             description: 'Estimated value of the department’s requested items.',
         },
     ];
+
+    const buildDashboardRows = () => [
+        ...metricCards.map((card) => ({
+            Section: 'Summary',
+            Label: card.label,
+            Value: String(card.value),
+            Detail: card.description,
+        })),
+        ...requestsByStatus.map((entry) => ({
+            Section: 'Requests by Status',
+            Label: entry.name,
+            Value: entry.count,
+            Detail: 'Department request count by workflow status',
+        })),
+        ...monthlyRequests.map((entry) => ({
+            Section: 'Monthly Request Activity',
+            Label: entry.name,
+            Value: entry.count,
+            Detail: 'Submitted requests for the month',
+        })),
+        ...mostRequestedItems.map((entry) => ({
+            Section: 'Most Requested Items',
+            Label: entry.name,
+            Value: entry.count,
+            Detail: 'Total requested quantity',
+        })),
+        ...recentRequests.map((entry) => ({
+            Section: 'Recent Requests',
+            Label: `Request #${entry.id}`,
+            Value: formatCurrency(entry.estimatedValue),
+            Detail: `${entry.date} | ${getDisplayStatus(entry.status)} | ${entry.purpose}`,
+        })),
+    ];
+
+    const handleExportExcel = () => {
+        exportRowsToExcel(buildDashboardRows(), `${departmentName} Dashboard`, 'department_head_dashboard_report.xlsx');
+    };
+
+    const handleExportCsv = () => {
+        exportRowsToCsv(buildDashboardRows(), 'department_head_dashboard_report.csv');
+    };
+
+    const handleExportPdf = () => {
+        exportRowsToPdf(
+            `${departmentName} Dashboard Report`,
+            metricCards.map((card) => ({ label: card.label, value: String(card.value) })),
+            ['Section', 'Label', 'Value', 'Detail'],
+            buildDashboardRows().map((row) => [row.Section, row.Label, row.Value, row.Detail]),
+            'department_head_dashboard_report.pdf',
+        );
+    };
+
+    const handlePrintDashboard = () => {
+        const rows = buildDashboardRows().map((row) => `
+            <tr>
+                <td>${row.Section}</td>
+                <td>${row.Label}</td>
+                <td>${row.Value}</td>
+                <td>${row.Detail}</td>
+            </tr>
+        `).join('');
+
+        printHtmlDocument(
+            `${departmentName} Dashboard Report`,
+            `
+                <h1>${departmentName} Dashboard Report</h1>
+                <div class="meta">
+                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Section</th>
+                            <th>Label</th>
+                            <th>Value</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="4">No dashboard data available.</td></tr>'}</tbody>
+                </table>
+            `,
+        );
+    };
+
+    useEffect(() => {
+        setFilterFrom(filters.from ?? '');
+        setFilterTo(filters.to ?? '');
+    }, [filters.from, filters.to]);
 
     useEffect(() => {
         const raw = window.localStorage.getItem(storageKey);
@@ -266,6 +361,27 @@ export default function Dashboard() {
         setDraggedCardId(null);
     };
 
+    const handleApplyFilters = () => {
+        router.get(dashboard().url, {
+            ...(filterFrom ? { from: filterFrom } : {}),
+            ...(filterTo ? { to: filterTo } : {}),
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    const handleResetFilters = () => {
+        setFilterFrom('');
+        setFilterTo('');
+        router.get(dashboard().url, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${departmentName} Dashboard`} />
@@ -278,6 +394,18 @@ export default function Dashboard() {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" onClick={handlePrintDashboard}>
+                            Print
+                        </Button>
+                        <Button type="button" variant="outline" onClick={handleExportExcel}>
+                            Export Excel
+                        </Button>
+                        <Button type="button" variant="outline" onClick={handleExportCsv}>
+                            Export CSV
+                        </Button>
+                        <Button type="button" variant="outline" onClick={handleExportPdf}>
+                            Export PDF
+                        </Button>
                         <Button type="button" variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode((current) => !current)}>
                             {editMode ? 'Done Editing' : 'Edit Dashboard'}
                         </Button>
@@ -291,6 +419,29 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                <Card className="border-border/70 bg-card/80 backdrop-blur">
+                    <CardHeader>
+                        <CardTitle>Date Range</CardTitle>
+                        <CardDescription>
+                            Filter department request demand and activity to a selected reporting period.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                            <span>From</span>
+                            <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                        </label>
+                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                            <span>To</span>
+                            <input type="date" value={filterTo} onChange={(event) => setFilterTo(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                        </label>
+                        <div className="flex gap-2">
+                            <Button type="button" onClick={handleApplyFilters}>Apply</Button>
+                            <Button type="button" variant="outline" onClick={handleResetFilters}>Reset</Button>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {editMode && (
                     <Card className="border-border/70 bg-card/80 backdrop-blur">

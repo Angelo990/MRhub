@@ -4,17 +4,25 @@ namespace App\Http\Controllers\DepartmentHead;
 
 use App\Http\Controllers\Controller;
 use App\Models\Request as SupplyRequest;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(Request $httpRequest)
     {
         $user = auth()->user()->loadMissing('department');
         $departmentId = $user->department_id;
         $departmentName = $user->department?->name ?? 'Department';
+        $from = $httpRequest->string('from')->toString() ?: null;
+        $to = $httpRequest->string('to')->toString() ?: null;
+
+        $requestQuery = SupplyRequest::query()
+            ->where('department_id', $departmentId)
+            ->when($from, fn ($query) => $query->whereDate('date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('date', '<=', $to));
 
         $requestsByStatus = collect([
             'Pending Endorsement',
@@ -25,12 +33,14 @@ class DashboardController extends Controller
             'Rejected',
         ])->map(fn (string $status) => [
             'name' => $status,
-            'count' => SupplyRequest::where('department_id', $departmentId)->where('status', $status)->count(),
+            'count' => (clone $requestQuery)->where('status', $status)->count(),
         ])->values();
 
         $mostRequestedItems = DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->where('requests.department_id', $departmentId)
+            ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
             ->select('request_items.particular')
             ->selectRaw('SUM(request_items.quantity) as total_quantity')
             ->groupBy('request_items.particular')
@@ -45,6 +55,8 @@ class DashboardController extends Controller
 
         $monthlyRequests = DB::table('requests')
             ->where('department_id', $departmentId)
+            ->when($from, fn ($query) => $query->whereDate('date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('date', '<=', $to))
             ->selectRaw("DATE_FORMAT(date, '%Y-%m') as month_key")
             ->selectRaw('COUNT(*) as total_requests')
             ->groupBy('month_key')
@@ -61,11 +73,13 @@ class DashboardController extends Controller
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->join('items', 'items.id', '=', 'request_items.item_id')
             ->where('requests.department_id', $departmentId)
+            ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
             ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
             ->value('total_cost');
 
-        $recentRequests = SupplyRequest::with(['items'])
-            ->where('department_id', $departmentId)
+        $recentRequests = (clone $requestQuery)
+            ->with(['items'])
             ->latest('date')
             ->latest('id')
             ->limit(6)
@@ -91,19 +105,11 @@ class DashboardController extends Controller
             ->values();
 
         $stats = [
-            'totalRequests' => SupplyRequest::where('department_id', $departmentId)->count(),
-            'pendingRequests' => SupplyRequest::where('department_id', $departmentId)
-                ->whereIn('status', ['Pending Endorsement', 'Pending Approval'])
-                ->count(),
-            'approvedRequests' => SupplyRequest::where('department_id', $departmentId)
-                ->whereIn('status', ['Approved', 'Released'])
-                ->count(),
-            'completedRequests' => SupplyRequest::where('department_id', $departmentId)
-                ->where('status', 'Completed')
-                ->count(),
-            'rejectedRequests' => SupplyRequest::where('department_id', $departmentId)
-                ->where('status', 'Rejected')
-                ->count(),
+            'totalRequests' => (clone $requestQuery)->count(),
+            'pendingRequests' => (clone $requestQuery)->whereIn('status', ['Pending Endorsement', 'Pending Approval'])->count(),
+            'approvedRequests' => (clone $requestQuery)->whereIn('status', ['Approved', 'Released'])->count(),
+            'completedRequests' => (clone $requestQuery)->where('status', 'Completed')->count(),
+            'rejectedRequests' => (clone $requestQuery)->where('status', 'Rejected')->count(),
             'estimatedRequestValue' => $requestValue,
         ];
 
@@ -114,6 +120,10 @@ class DashboardController extends Controller
             'mostRequestedItems' => $mostRequestedItems,
             'monthlyRequests' => $monthlyRequests,
             'recentRequests' => $recentRequests,
+            'filters' => [
+                'from' => $from,
+                'to' => $to,
+            ],
         ]);
     }
 }

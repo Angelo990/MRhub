@@ -7,15 +7,23 @@ use App\Models\Department;
 use App\Models\Item;
 use App\Models\Request as SupplyRequest;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(Request $httpRequest)
     {
+        $from = $httpRequest->string('from')->toString() ?: null;
+        $to = $httpRequest->string('to')->toString() ?: null;
+
         $usersByRole = Role::query()
-            ->withCount('users')
+            ->withCount(['users' => function ($query) use ($from, $to) {
+                $query
+                    ->when($from, fn ($builder) => $builder->whereDate('users.created_at', '>=', $from))
+                    ->when($to, fn ($builder) => $builder->whereDate('users.created_at', '<=', $to));
+            }])
             ->orderByDesc('users_count')
             ->get()
             ->map(fn (Role $role) => [
@@ -25,7 +33,11 @@ class DashboardController extends Controller
             ->values();
 
         $usersByDepartment = Department::query()
-            ->withCount('users')
+            ->withCount(['users' => function ($query) use ($from, $to) {
+                $query
+                    ->when($from, fn ($builder) => $builder->whereDate('users.created_at', '>=', $from))
+                    ->when($to, fn ($builder) => $builder->whereDate('users.created_at', '<=', $to));
+            }])
             ->orderByDesc('users_count')
             ->get()
             ->map(fn (Department $department) => [
@@ -33,6 +45,14 @@ class DashboardController extends Controller
                 'count' => $department->users_count,
             ])
             ->values();
+
+        $requestQuery = SupplyRequest::query()
+            ->when($from, fn ($query) => $query->whereDate('date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('date', '<=', $to));
+
+        $userQuery = User::query()
+            ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to));
 
         $requestsByStatus = collect([
             'Pending Endorsement',
@@ -43,15 +63,15 @@ class DashboardController extends Controller
             'Rejected',
         ])->map(fn (string $status) => [
             'name' => $status,
-            'count' => SupplyRequest::where('status', $status)->count(),
+            'count' => (clone $requestQuery)->where('status', $status)->count(),
         ])->values();
 
         $stats = [
-            'totalUsers' => User::count(),
-            'departmentHeads' => User::role('department-head')->count(),
+            'totalUsers' => (clone $userQuery)->count(),
+            'departmentHeads' => (clone $userQuery)->role('department-head')->count(),
             'totalDepartments' => Department::count(),
-            'pendingRequests' => SupplyRequest::whereIn('status', ['Pending Endorsement', 'Pending Approval'])->count(),
-            'releasedRequests' => SupplyRequest::where('status', 'Released')->count(),
+            'pendingRequests' => (clone $requestQuery)->whereIn('status', ['Pending Endorsement', 'Pending Approval'])->count(),
+            'releasedRequests' => (clone $requestQuery)->where('status', 'Released')->count(),
             'lowStockItems' => Item::where('quantity', '<=', 5)->count(),
         ];
 
@@ -60,6 +80,10 @@ class DashboardController extends Controller
             'usersByDepartment' => $usersByDepartment,
             'requestsByStatus' => $requestsByStatus,
             'stats' => $stats,
+            'filters' => [
+                'from' => $from,
+                'to' => $to,
+            ],
         ]);
     }
 }

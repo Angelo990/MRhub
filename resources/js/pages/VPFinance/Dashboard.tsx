@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const { stats, departmentRequestCost, itemRequestCost, costByStatus } = usePage<SharedData & {
+    const { stats, departmentRequestCost, itemRequestCost, costByStatus, recentPendingApprovals, filters } = usePage<SharedData & {
         stats: {
             totalRequestValue: number;
             pendingApprovalValue: number;
@@ -31,18 +31,34 @@ export default function Dashboard() {
         departmentRequestCost: Array<{ name: string; total: number }>;
         itemRequestCost: Array<{ name: string; total: number }>;
         costByStatus: Array<{ name: string; total: number }>;
+        recentPendingApprovals: Array<{
+            id: number;
+            date: string;
+            department: string;
+            requestedBy: string;
+            purpose: string;
+            itemCount: number;
+            estimatedValue: number;
+        }>;
+        filters: {
+            from: string | null;
+            to: string | null;
+        };
     }>().props;
 
     const palette = ['#14532d', '#0f766e', '#1d4ed8', '#7c3aed', '#c2410c', '#be123c'];
-    const chartIds = ['department-request-cost', 'cost-by-status', 'most-costly-requested-items'];
+    const chartIds = ['department-request-cost', 'cost-by-status', 'most-costly-requested-items', 'recent-pending-approvals'];
     const storageKey = 'dashboard:vp-finance:layout';
     const [editMode, setEditMode] = useState(false);
     const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
     const [chartOrder, setChartOrder] = useState(chartIds);
+    const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
+    const [filterTo, setFilterTo] = useState(filters.to ?? '');
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
         'department-request-cost': true,
         'cost-by-status': true,
         'most-costly-requested-items': true,
+        'recent-pending-approvals': true,
     });
     const formatCurrency = (value: number) => `PHP ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -109,6 +125,12 @@ export default function Dashboard() {
             Value: formatCurrency(entry.total),
             Detail: 'Estimated requested item value',
         })),
+        ...recentPendingApprovals.map((entry) => ({
+            Section: 'Recent Pending Approvals',
+            Label: `Request #${entry.id} - ${entry.department}`,
+            Value: formatCurrency(entry.estimatedValue),
+            Detail: `${entry.requestedBy} | ${entry.itemCount} item lines | ${entry.purpose}`,
+        })),
     ];
 
     const handleExportExcel = () => {
@@ -156,6 +178,17 @@ export default function Dashboard() {
             <tr>
                 <td>${entry.name}</td>
                 <td>${formatCurrency(entry.total)}</td>
+            </tr>
+        `).join('');
+
+        const approvalRows = recentPendingApprovals.map((entry) => `
+            <tr>
+                <td>${entry.id}</td>
+                <td>${entry.date}</td>
+                <td>${entry.department}</td>
+                <td>${entry.requestedBy}</td>
+                <td>${entry.itemCount}</td>
+                <td>${formatCurrency(entry.estimatedValue)}</td>
             </tr>
         `).join('');
 
@@ -209,9 +242,28 @@ export default function Dashboard() {
                     </thead>
                     <tbody>${itemRows || '<tr><td colspan="2">No data available.</td></tr>'}</tbody>
                 </table>
+                <h2>Recent Pending Approvals</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Date</th>
+                            <th>Department</th>
+                            <th>Requested By</th>
+                            <th>Item Lines</th>
+                            <th>Estimated Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>${approvalRows || '<tr><td colspan="6">No pending approvals.</td></tr>'}</tbody>
+                </table>
             `,
         );
     };
+
+    useEffect(() => {
+        setFilterFrom(filters.from ?? '');
+        setFilterTo(filters.to ?? '');
+    }, [filters.from, filters.to]);
 
     useEffect(() => {
         const raw = window.localStorage.getItem(storageKey);
@@ -317,7 +369,41 @@ export default function Dashboard() {
                 </div>
             ),
         },
-    ], [costByStatus, departmentRequestCost, itemRequestCost]);
+        {
+            id: 'recent-pending-approvals',
+            title: 'Recent Pending Approvals',
+            description: 'Requests currently waiting for finance action, ordered by recency.',
+            className: 'xl:col-span-2',
+            content: (
+                <div className="space-y-3">
+                    {recentPendingApprovals.length > 0 ? recentPendingApprovals.map((request) => (
+                        <div key={request.id} className="flex flex-col gap-3 rounded-lg border border-border/70 bg-background/60 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                    <span className="font-semibold">Request #{request.id}</span>
+                                    <span className="text-muted-foreground">{request.date}</span>
+                                    <span className="rounded-full border border-border/70 px-2 py-0.5 text-xs">{request.department}</span>
+                                </div>
+                                <div className="text-sm font-medium">{request.purpose}</div>
+                                <div className="text-muted-foreground flex flex-wrap gap-3 text-xs">
+                                    <span>Requested by {request.requestedBy}</span>
+                                    <span>{request.itemCount} item lines</span>
+                                    <span>{formatCurrency(request.estimatedValue)}</span>
+                                </div>
+                            </div>
+                            <Button type="button" variant="outline" asChild>
+                                <Link href="/vp-finance/requests">Open Approval Queue</Link>
+                            </Button>
+                        </div>
+                    )) : (
+                        <div className="rounded-lg border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
+                            No pending approvals at the moment.
+                        </div>
+                    )}
+                </div>
+            ),
+        },
+    ], [costByStatus, departmentRequestCost, itemRequestCost, recentPendingApprovals]);
 
     const orderedVisibleCards = chartOrder
         .map((id) => chartCards.find((card) => card.id === id))
@@ -333,6 +419,7 @@ export default function Dashboard() {
             'department-request-cost': true,
             'cost-by-status': true,
             'most-costly-requested-items': true,
+            'recent-pending-approvals': true,
         });
     };
 
@@ -343,6 +430,27 @@ export default function Dashboard() {
 
         setChartOrder((current) => reorderIds(current, draggedCardId, targetId));
         setDraggedCardId(null);
+    };
+
+    const handleApplyFilters = () => {
+        router.get(dashboard().url, {
+            ...(filterFrom ? { from: filterFrom } : {}),
+            ...(filterTo ? { to: filterTo } : {}),
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    const handleResetFilters = () => {
+        setFilterFrom('');
+        setFilterTo('');
+        router.get(dashboard().url, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
     };
 
     return (
@@ -379,6 +487,29 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                <Card className="border-border/70 bg-card/80 backdrop-blur">
+                    <CardHeader>
+                        <CardTitle>Date Range</CardTitle>
+                        <CardDescription>
+                            Filter approval exposure, released cost, and finance workload to a selected period.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                            <span>From</span>
+                            <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                        </label>
+                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                            <span>To</span>
+                            <input type="date" value={filterTo} onChange={(event) => setFilterTo(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                        </label>
+                        <div className="flex gap-2">
+                            <Button type="button" onClick={handleApplyFilters}>Apply</Button>
+                            <Button type="button" variant="outline" onClick={handleResetFilters}>Reset</Button>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {editMode && (
                     <Card className="border-border/70 bg-card/80 backdrop-blur">
