@@ -24,9 +24,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     // Individual dashboards for each role
-    Route::get('dashboard/property-custodian', function () {
-        return Inertia::render('PropertyCustodian/Dashboard');
-    })->middleware('role:property-custodian')->name('dashboard.property-custodian');
+    Route::get('dashboard/property-custodian', \App\Http\Controllers\PropertyCustodian\DashboardController::class)
+        ->middleware('role:property-custodian')
+        ->name('dashboard.property-custodian');
 
     Route::get('dashboard/vp-finance', function () {
         return Inertia::render('VPFinance/Dashboard');

@@ -1,0 +1,122 @@
+<?php
+
+namespace App\Http\Controllers\PropertyCustodian;
+
+use App\Http\Controllers\Controller;
+use App\Models\Item;
+use App\Models\Request as SupplyRequest;
+use App\Models\StockCardEntry;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+
+class DashboardController extends Controller
+{
+    public function __invoke()
+    {
+        $requestStatuses = collect([
+            'Pending Endorsement',
+            'Pending Approval',
+            'Approved',
+            'Released',
+            'Completed',
+            'Rejected',
+        ])->map(fn (string $status) => [
+            'name' => $status,
+            'count' => SupplyRequest::where('status', $status)->count(),
+        ])->values();
+
+        $stockLevels = Item::query()
+            ->orderByDesc('quantity')
+            ->limit(8)
+            ->get(['id', 'name', 'quantity', 'unit'])
+            ->map(fn (Item $item) => [
+                'name' => $item->name,
+                'quantity' => $item->quantity,
+                'unit' => $item->unit,
+            ])
+            ->values();
+
+        $stockMovements = collect([
+            'stock_in' => 'Stock In',
+            'stock_out' => 'Stock Out',
+        ])->map(fn (string $label, string $movementType) => [
+            'name' => $label,
+            'quantity' => (int) StockCardEntry::where('movement_type', $movementType)->sum('quantity'),
+        ])->values();
+
+        $lowStockItems = Item::query()
+            ->where('quantity', '<=', 5)
+            ->orderBy('quantity')
+            ->limit(6)
+            ->get(['id', 'name', 'quantity', 'unit'])
+            ->map(fn (Item $item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'quantity' => $item->quantity,
+                'unit' => $item->unit,
+            ])
+            ->values();
+
+        $requestsByDepartment = SupplyRequest::query()
+            ->select('departments.name')
+            ->selectRaw('COUNT(requests.id) as total_requests')
+            ->join('departments', 'departments.id', '=', 'requests.department_id')
+            ->groupBy('departments.name')
+            ->orderByDesc('total_requests')
+            ->limit(6)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'count' => (int) $row->total_requests,
+            ])
+            ->values();
+
+        $requestedItemsByDepartment = DB::table('request_items')
+            ->join('requests', 'requests.id', '=', 'request_items.request_id')
+            ->join('departments', 'departments.id', '=', 'requests.department_id')
+            ->select('departments.name')
+            ->selectRaw('SUM(request_items.quantity) as total_items')
+            ->groupBy('departments.name')
+            ->orderByDesc('total_items')
+            ->limit(6)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'count' => (int) $row->total_items,
+            ])
+            ->values();
+
+        $mostRequestedItems = DB::table('request_items')
+            ->select('particular')
+            ->selectRaw('SUM(quantity) as total_quantity')
+            ->groupBy('particular')
+            ->orderByDesc('total_quantity')
+            ->limit(8)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->particular,
+                'count' => (int) $row->total_quantity,
+            ])
+            ->values();
+
+        $stats = [
+            'totalItems' => Item::count(),
+            'totalUnitsOnHand' => (int) Item::sum('quantity'),
+            'lowStockItems' => Item::where('quantity', '<=', 5)->count(),
+            'pendingEndorsement' => SupplyRequest::where('status', 'Pending Endorsement')->count(),
+            'approvedForRelease' => SupplyRequest::where('status', 'Approved')->count(),
+            'releasedRequests' => SupplyRequest::where('status', 'Released')->count(),
+        ];
+
+        return Inertia::render('PropertyCustodian/Dashboard', [
+            'stats' => $stats,
+            'requestStatuses' => $requestStatuses,
+            'stockLevels' => $stockLevels,
+            'stockMovements' => $stockMovements,
+            'lowStockItems' => $lowStockItems,
+            'requestsByDepartment' => $requestsByDepartment,
+            'requestedItemsByDepartment' => $requestedItemsByDepartment,
+            'mostRequestedItems' => $mostRequestedItems,
+        ]);
+    }
+}
