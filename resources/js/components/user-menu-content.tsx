@@ -14,13 +14,15 @@ interface UserMenuContentProps {
 export function UserMenuContent({ user }: UserMenuContentProps) {
     const cleanup = useMobileNavigation();
 
-    const handleLogout = (e: React.MouseEvent) => {
+    const handleLogout = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         cleanup();
         router.post(logout(), {}, {
-            onFinish: () => {
+            replace: true,
+            onSuccess: () => {
                 router.flushAll();
-            }
+                window.location.replace('/login');
+            },
         });
     };
 
@@ -42,10 +44,10 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <a className="block w-full" href={logout()} onClick={handleLogout}>
+                <button className="block w-full text-left" type="button" onClick={handleLogout}>
                     <LogOut className="mr-2" />
                     Log out
-                </a>
+                </button>
             </DropdownMenuItem>
         </>
     );
