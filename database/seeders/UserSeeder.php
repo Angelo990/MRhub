@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use App\Models\Department;
 use App\Models\User;
 
 class UserSeeder extends Seeder
@@ -14,13 +14,47 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $user = User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@gmail.com',
-            'password' => Hash::make('12345678'),
-        ]);
+        $csitDepartmentId = Department::where('name', 'CSIT')->value('id');
 
-        // Assign admin role to the User
-        $user->assignRole('admin');
+        $users = [
+            [
+                'name' => 'Admin User',
+                'email' => 'admin@gmail.com',
+                'role' => 'admin',
+                'department_id' => null,
+            ],
+            [
+                'name' => 'Property Custodian User',
+                'email' => 'custodian@gmail.com',
+                'role' => 'property-custodian',
+                'department_id' => null,
+            ],
+            [
+                'name' => 'VP Finance User',
+                'email' => 'vpfinance@gmail.com',
+                'role' => 'vp-finance',
+                'department_id' => null,
+            ],
+            [
+                'name' => 'Department Head User',
+                'email' => 'depthead@gmail.com',
+                'role' => 'department-head',
+                'department_id' => $csitDepartmentId,
+            ],
+        ];
+
+        foreach ($users as $seededUser) {
+            $user = User::updateOrCreate(
+                ['email' => $seededUser['email']],
+                [
+                    'name' => $seededUser['name'],
+                    'password' => Hash::make('12345678'),
+                    'department_id' => $seededUser['department_id'],
+                    'email_verified_at' => now(),
+                ],
+            );
+
+            $user->syncRoles([$seededUser['role']]);
+        }
     }
 }

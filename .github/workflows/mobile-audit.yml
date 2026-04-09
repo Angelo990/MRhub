@@ -1,0 +1,116 @@
+name: mobile-audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  mobile-audit:
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: testing
+      APP_URL: http://127.0.0.1:8000
+      DB_CONNECTION: sqlite
+      DB_DATABASE: database/database.sqlite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install PHP Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Install Playwright Browser
+        run: npm run mobile:audit:install
+
+      - name: Prepare Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database
+          touch database/database.sqlite
+
+      - name: Run Migrations
+        run: php artisan migrate --force
+
+      - name: Seed Audit Accounts
+        run: php artisan db:seed --force
+
+      - name: Start Laravel Server
+        run: php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/mobile-audit-server.log 2>&1 &
+
+      - name: Wait For Laravel
+        timeout-minutes: 2
+        run: |
+          for i in {1..60}; do
+            if curl --silent --show-error --fail http://127.0.0.1:8000/login > /dev/null; then
+              exit 0
+            fi
+            if ! pgrep -f "artisan serve --host=127.0.0.1 --port=8000" > /dev/null; then
+              echo "Laravel server exited before becoming ready."
+              cat storage/logs/mobile-audit-server.log
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Laravel server did not become ready in time."
+          cat storage/logs/mobile-audit-server.log
+          exit 1
+
+      - name: Run Mobile Audit
+        run: npm run mobile:audit
+
+      - name: Upload Mobile Audit Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-audit-artifacts
+          path: |
+            playwright-report
+            test-results/mobile-audit
+            storage/logs/mobile-audit-server.log
+          if-no-files-found: ignore
