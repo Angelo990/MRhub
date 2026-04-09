@@ -5,6 +5,7 @@ namespace App\Http\Controllers\DepartmentHead;
 use App\Http\Controllers\Controller;
 use App\Models\Request as SupplyRequest;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -63,6 +64,32 @@ class DashboardController extends Controller
             ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
             ->value('total_cost');
 
+        $recentRequests = SupplyRequest::with(['items'])
+            ->where('department_id', $departmentId)
+            ->latest('date')
+            ->latest('id')
+            ->limit(6)
+            ->get()
+            ->map(function (SupplyRequest $request) {
+                $estimatedValue = (float) DB::table('request_items')
+                    ->join('items', 'items.id', '=', 'request_items.item_id')
+                    ->where('request_items.request_id', $request->id)
+                    ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                    ->value('total_cost');
+
+                return [
+                    'id' => $request->id,
+                    'date' => $request->date,
+                    'purpose' => Str::limit($request->purpose, 72),
+                    'status' => $request->status,
+                    'itemCount' => $request->items->count(),
+                    'totalQuantity' => (int) $request->items->sum('quantity'),
+                    'estimatedValue' => $estimatedValue,
+                    'canMarkReceived' => in_array($request->status, ['Ready for Pickup', 'Released'], true),
+                ];
+            })
+            ->values();
+
         $stats = [
             'totalRequests' => SupplyRequest::where('department_id', $departmentId)->count(),
             'pendingRequests' => SupplyRequest::where('department_id', $departmentId)
@@ -86,6 +113,7 @@ class DashboardController extends Controller
             'requestsByStatus' => $requestsByStatus,
             'mostRequestedItems' => $mostRequestedItems,
             'monthlyRequests' => $monthlyRequests,
+            'recentRequests' => $recentRequests,
         ]);
     }
 }
