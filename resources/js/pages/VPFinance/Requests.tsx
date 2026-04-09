@@ -15,6 +15,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import type { SharedData } from '@/types';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
     useReactTable,
@@ -57,7 +58,7 @@ interface RequestResponse {
 
 export default function Requests() {
     // Main component logic starts here
-    const { requests, csrf_token } = (usePage().props as SharedData & PageProps);
+    const { requests, csrf_token } = usePage<SharedData & PageProps>().props;
     const [tableData, setTableData] = useState(requests);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const {
@@ -84,13 +85,81 @@ export default function Requests() {
 
             router.reload({
                 only: ['requests'],
-                preserveState: true,
-                preserveScroll: true,
             });
         }, 5000);
 
         return () => window.clearInterval(intervalId);
     }, [processingId]);
+
+    const buildReportRows = () => tableData.map((request) => ({
+        Date: request.date,
+        Department: request.department.name,
+        Purpose: request.purpose,
+        'Requested By': request.requested_by,
+        Status: request.status,
+        Items: request.items.map((item) => `${item.particular} (${item.quantity} ${item.unit})`).join('; '),
+    }));
+
+    const handlePrintReport = () => {
+        const rows = tableData.map((request) => `
+            <tr>
+                <td>${request.date}</td>
+                <td>${request.department.name}</td>
+                <td>${request.purpose}</td>
+                <td>${request.requested_by}</td>
+                <td>${request.status}</td>
+                <td>${request.items.map((item) => `${item.particular} (${item.quantity} ${item.unit})`).join(', ')}</td>
+            </tr>
+        `).join('');
+
+        printHtmlDocument(
+            'VP Finance Requests Report',
+            `
+                <h1>VP Finance Requests Report</h1>
+                <div class="meta">
+                    <p><strong>Total Requests:</strong> ${tableData.length}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Department</th>
+                            <th>Purpose</th>
+                            <th>Requested By</th>
+                            <th>Status</th>
+                            <th>Items</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="6">No requests found.</td></tr>'}</tbody>
+                </table>
+            `,
+        );
+    };
+
+    const handleExportExcel = () => {
+        exportRowsToExcel(buildReportRows(), 'VP Finance Requests', 'vp_finance_requests.xlsx');
+    };
+
+    const handleExportCsv = () => {
+        exportRowsToCsv(buildReportRows(), 'vp_finance_requests.csv');
+    };
+
+    const handleExportPdf = () => {
+        exportRowsToPdf(
+            'VP Finance Requests Report',
+            [{ label: 'Total Requests', value: tableData.length }],
+            ['Date', 'Department', 'Purpose', 'Requested By', 'Status', 'Items'],
+            tableData.map((request) => [
+                request.date,
+                request.department.name,
+                request.purpose,
+                request.requested_by,
+                request.status,
+                request.items.map((item) => `${item.particular} (${item.quantity} ${item.unit})`).join(', '),
+            ]),
+            'vp_finance_requests.pdf',
+        );
+    };
 
     const handleApprove = async (id: number) => {
         setProcessingId(id);
@@ -180,6 +249,12 @@ export default function Requests() {
                 <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
                     <div className="flex items-center justify-between mb-2">
                         <h1 className="text-2xl font-bold">Requests for Approval</h1>
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={handlePrintReport}>Print</Button>
+                            <Button type="button" variant="secondary" onClick={handleExportExcel}>Excel</Button>
+                            <Button type="button" variant="secondary" onClick={handleExportCsv}>CSV</Button>
+                            <Button type="button" variant="secondary" onClick={handleExportPdf}>PDF</Button>
+                        </div>
                     </div>
                     <DataTableToolbar
                         pageSize={pagination.pageSize}

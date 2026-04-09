@@ -17,6 +17,7 @@ import { DataTablePagination, DataTableToolbar } from '@/components/data-table-c
 import { DataTableShell } from '@/components/data-table-shell';
 import { useDataTable } from '@/hooks/use-data-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 interface Role {
 	id: number;
@@ -56,7 +57,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 
 const ManageUser: React.FC = () => {
-	const { users, departments, csrf_token } = (usePage().props as SharedData & PageProps);
+	const { users, departments, csrf_token } = usePage<SharedData & PageProps>().props;
 	const [tableData, setTableData] = useState(users);
 	const [showModal, setShowModal] = useState(false);
 	const [editMode, setEditMode] = useState(false);
@@ -89,13 +90,73 @@ const ManageUser: React.FC = () => {
 
 			router.reload({
 				only: ['users'],
-				preserveState: true,
-				preserveScroll: true,
 			});
 		}, 5000);
 
 		return () => window.clearInterval(intervalId);
 	}, [loading, showModal]);
+
+	const buildReportRows = () => tableData.map((user) => ({
+		Name: user.name,
+		Email: user.email,
+		Roles: user.roles.map((role) => role.name).join(', '),
+		Department: user.department?.name ?? '-',
+	}));
+
+	const handlePrintReport = () => {
+		const rows = tableData.map((user) => `
+			<tr>
+				<td>${user.name}</td>
+				<td>${user.email}</td>
+				<td>${user.roles.map((role) => role.name).join(', ') || 'No roles'}</td>
+				<td>${user.department?.name ?? '-'}</td>
+			</tr>
+		`).join('');
+
+		printHtmlDocument(
+			'User Management Report',
+			`
+				<h1>User Management Report</h1>
+				<div class="meta">
+					<p><strong>Total Users:</strong> ${tableData.length}</p>
+				</div>
+				<table>
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Email</th>
+							<th>Roles</th>
+							<th>Department</th>
+						</tr>
+					</thead>
+					<tbody>${rows || '<tr><td colspan="4">No users found.</td></tr>'}</tbody>
+				</table>
+			`,
+		);
+	};
+
+	const handleExportExcel = () => {
+		exportRowsToExcel(buildReportRows(), 'Users', 'user_management.xlsx');
+	};
+
+	const handleExportCsv = () => {
+		exportRowsToCsv(buildReportRows(), 'user_management.csv');
+	};
+
+	const handleExportPdf = () => {
+		exportRowsToPdf(
+			'User Management Report',
+			[{ label: 'Total Users', value: tableData.length }],
+			['Name', 'Email', 'Roles', 'Department'],
+			tableData.map((user) => [
+				user.name,
+				user.email,
+				user.roles.map((role) => role.name).join(', ') || 'No roles',
+				user.department?.name ?? '-',
+			]),
+			'user_management.pdf',
+		);
+	};
 
 	const resetForm = () => {
 		setForm({ id: null, name: '', email: '', password: '', roles: [], department_id: '' });
@@ -281,7 +342,13 @@ const ManageUser: React.FC = () => {
 			<div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
 				<div className="flex items-center justify-between mb-2">
 					<h1 className="text-2xl font-bold">User Management</h1>
-					<Button variant="default" onClick={() => openModal()}>Add User</Button>
+					<div className="flex gap-2">
+						<Button type="button" variant="outline" onClick={handlePrintReport}>Print</Button>
+						<Button type="button" variant="secondary" onClick={handleExportExcel}>Excel</Button>
+						<Button type="button" variant="secondary" onClick={handleExportCsv}>CSV</Button>
+						<Button type="button" variant="secondary" onClick={handleExportPdf}>PDF</Button>
+						<Button variant="default" onClick={() => openModal()}>Add User</Button>
+					</div>
 				</div>
 				<DataTableToolbar
 					pageSize={pagination.pageSize}

@@ -30,6 +30,7 @@ interface CreateRequestPageProps extends PageProps {
     auth?: {
         user?: AuthUser;
     };
+    [key: string]: unknown;
 }
 
 export default function CreateRequest() {

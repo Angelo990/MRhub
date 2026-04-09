@@ -17,6 +17,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { SharedData } from '@/types';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
     useReactTable,
@@ -37,6 +38,23 @@ interface Department {
     id: number;
     name: string;
 }
+interface ReceiptItem {
+    id: number;
+    particular: string;
+    quantity_delivered: number;
+    unit: string;
+    unit_cost: number;
+    total: number;
+}
+interface DeliveryReceipt {
+    id: number;
+    delivery_date: string;
+    prepared_by: string;
+    checked_by: string;
+    received_by: string;
+    total: number;
+    items?: ReceiptItem[];
+}
 interface Request {
     id: number;
     date: string;
@@ -45,10 +63,7 @@ interface Request {
     requested_by: string;
     status: string;
     items: RequestItem[];
-    delivery_receipt?: {
-        id: number;
-        received_by: string;
-    };
+    delivery_receipt?: DeliveryReceipt;
 }
 interface Item {
     id: number;
@@ -104,8 +119,6 @@ export default function Requests() {
 
             router.reload({
                 only: ['requests'],
-                preserveState: true,
-                preserveScroll: true,
             });
         }, 5000);
 
@@ -155,6 +168,100 @@ export default function Requests() {
             total: req ? req.items.reduce((sum, item) => sum + (item.quantity * getUnitPrice(item.item_id)), 0).toString() : '',
         });
         setOpenReceipt(id);
+    };
+
+    const formatCurrency = (value: number) => `₱ ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const buildReceiptRows = (request: Request) => (request.delivery_receipt?.items ?? []).map((item) => ({
+        Item: item.particular,
+        Qty: item.quantity_delivered,
+        Unit: item.unit,
+        'Unit Price': item.unit_cost,
+        Total: item.total,
+    }));
+
+    const handlePrintReceipt = (request: Request) => {
+        if (!request.delivery_receipt) {
+            return;
+        }
+
+        const receipt = request.delivery_receipt;
+        const rows = (receipt.items ?? []).map((item) => `
+            <tr>
+                <td>${item.particular}</td>
+                <td>${item.quantity_delivered}</td>
+                <td>${item.unit}</td>
+                <td>${formatCurrency(item.unit_cost)}</td>
+                <td>${formatCurrency(item.total)}</td>
+            </tr>
+        `).join('');
+
+        printHtmlDocument(
+            `Delivery Receipt #${receipt.id}`,
+            `
+                <h1>Delivery Receipt</h1>
+                <div class="meta">
+                    <p><strong>Request ID:</strong> ${request.id}</p>
+                    <p><strong>Delivery Date:</strong> ${receipt.delivery_date}</p>
+                    <p><strong>Prepared by:</strong> ${receipt.prepared_by}</p>
+                    <p><strong>Checked & Delivered by:</strong> ${receipt.checked_by}</p>
+                    <p><strong>Received by:</strong> ${receipt.received_by}</p>
+                    <p><strong>Status:</strong> ${request.status}</p>
+                    <p><strong>Total:</strong> ${formatCurrency(receipt.total)}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            <th>Unit</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="5">No receipt items found.</td></tr>'}</tbody>
+                </table>
+            `,
+        );
+    };
+
+    const handleExportReceiptExcel = (request: Request) => {
+        exportRowsToExcel(buildReceiptRows(request), 'Delivery Receipt', `delivery_receipt_${request.id}.xlsx`);
+    };
+
+    const handleExportReceiptCsv = (request: Request) => {
+        exportRowsToCsv(buildReceiptRows(request), `delivery_receipt_${request.id}.csv`);
+    };
+
+    const handleExportReceiptPdf = (request: Request) => {
+        if (!request.delivery_receipt) {
+            return;
+        }
+
+        const receipt = request.delivery_receipt;
+        const rows = (receipt.items ?? []).map((item) => [
+            item.particular,
+            item.quantity_delivered,
+            item.unit,
+            formatCurrency(item.unit_cost),
+            formatCurrency(item.total),
+        ]);
+
+        exportRowsToPdf(
+            `Delivery Receipt #${receipt.id}`,
+            [
+                { label: 'Request ID', value: request.id },
+                { label: 'Delivery Date', value: receipt.delivery_date },
+                { label: 'Prepared by', value: receipt.prepared_by },
+                { label: 'Checked & Delivered by', value: receipt.checked_by },
+                { label: 'Received by', value: receipt.received_by },
+                { label: 'Status', value: request.status },
+                { label: 'Total', value: formatCurrency(receipt.total) },
+            ],
+            ['Item', 'Qty', 'Unit', 'Unit Price', 'Total'],
+            rows,
+            `delivery_receipt_${request.id}.pdf`,
+        );
     };
     const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -211,6 +318,11 @@ export default function Requests() {
                             Release Items
                         </Button>
                     )}
+                    {req.status === 'Released' && req.delivery_receipt && (
+                        <Button size="sm" variant="outline" onClick={() => setOpenReceipt(req.id)} disabled={processingId === req.id}>
+                            View Receipt
+                        </Button>
+                    )}
                 </div>
             )),
         ], [handleEndorse, handleOpenReceipt, processingId]);
@@ -259,22 +371,35 @@ export default function Requests() {
                 {/* ...existing code for Dialog, etc... */}
                 {openReceipt && (() => {
                     const req = tableData.find(r => r.id === openReceipt);
+                    const isReleasedReceipt = req?.status === 'Released' && req.delivery_receipt;
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Release Items</DialogTitle>
+                                    <DialogTitle>{isReleasedReceipt ? 'Delivery Receipt' : 'Release Items'}</DialogTitle>
                                 </DialogHeader>
-                                {error && <div className="text-red-500 mb-2">{error}</div>}
-                                <form className="grid gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
-                                    <label htmlFor="delivery_date" className="font-semibold">Delivery Date</label>
-                                    <input type="date" id="delivery_date" name="delivery_date" value={receiptForm.delivery_date} disabled className="border rounded p-2" title="Delivery Date" placeholder="Delivery Date" />
-                                    <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="border rounded p-2" />
-                                    <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="border rounded p-2" />
-                                    <label htmlFor="received_by" className="font-semibold">Received by</label>
-                                    <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="border rounded p-2" title="Received by" placeholder="Received by" />
-                                    <div className="border rounded p-2 bg-gray-50">
-                                        <div className="font-semibold mb-2">Items</div>
+                                {isReleasedReceipt && req.delivery_receipt ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-end gap-2">
+                                            <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
+                                                Print
+                                            </Button>
+                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptExcel(req)}>
+                                                Export Excel
+                                            </Button>
+                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptCsv(req)}>
+                                                Export CSV
+                                            </Button>
+                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptPdf(req)}>
+                                                Export PDF
+                                            </Button>
+                                        </div>
+                                        <div><strong>Delivery Date:</strong> {req.delivery_receipt.delivery_date}</div>
+                                        <div><strong>Prepared by:</strong> {req.delivery_receipt.prepared_by}</div>
+                                        <div><strong>Checked & Delivered by:</strong> {req.delivery_receipt.checked_by}</div>
+                                        <div><strong>Received by:</strong> {req.delivery_receipt.received_by}</div>
+                                        <div><strong>Status:</strong> {req.status}</div>
+                                        <div><strong>Total:</strong> {formatCurrency(req.delivery_receipt.total)}</div>
                                         <table className="min-w-full text-sm">
                                             <thead>
                                                 <tr>
@@ -286,25 +411,62 @@ export default function Requests() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {req?.items.map(item => (
+                                                {req.delivery_receipt.items?.map((item) => (
                                                     <tr key={item.id}>
                                                         <td className="px-2 py-1">{item.particular}</td>
-                                                        <td className="px-2 py-1">{item.quantity}</td>
+                                                        <td className="px-2 py-1">{item.quantity_delivered}</td>
                                                         <td className="px-2 py-1">{item.unit}</td>
-                                                        <td className="px-2 py-1">{getUnitPrice(item.item_id)}</td>
-                                                        <td className="px-2 py-1">{item.quantity * getUnitPrice(item.item_id)}</td>
+                                                        <td className="px-2 py-1">{formatCurrency(item.unit_cost)}</td>
+                                                        <td className="px-2 py-1">{formatCurrency(item.total)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
-                                    <label htmlFor="total" className="font-semibold">Total</label>
-                                    <input type="number" id="total" name="total" value={receiptForm.total} disabled placeholder="Total" className="border rounded p-2" title="Total" />
-                                    <div className="flex justify-end gap-2">
-                                        <Button type="submit" variant="default" disabled={processingId === openReceipt}>Release</Button>
-                                        <Button type="button" variant="outline" onClick={() => setOpenReceipt(null)}>Cancel</Button>
-                                    </div>
-                                </form>
+                                ) : (
+                                    <>
+                                        {error && <div className="text-red-500 mb-2">{error}</div>}
+                                        <form className="grid gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
+                                            <label htmlFor="delivery_date" className="font-semibold">Delivery Date</label>
+                                            <input type="date" id="delivery_date" name="delivery_date" value={receiptForm.delivery_date} disabled className="border rounded p-2" title="Delivery Date" placeholder="Delivery Date" />
+                                            <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="border rounded p-2" />
+                                            <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="border rounded p-2" />
+                                            <label htmlFor="received_by" className="font-semibold">Received by</label>
+                                            <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="border rounded p-2" title="Received by" placeholder="Received by" />
+                                            <div className="border rounded p-2 bg-gray-50">
+                                                <div className="font-semibold mb-2">Items</div>
+                                                <table className="min-w-full text-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th className="px-2 py-1">Item</th>
+                                                            <th className="px-2 py-1">Qty</th>
+                                                            <th className="px-2 py-1">Unit</th>
+                                                            <th className="px-2 py-1">Unit Price</th>
+                                                            <th className="px-2 py-1">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {req?.items.map(item => (
+                                                            <tr key={item.id}>
+                                                                <td className="px-2 py-1">{item.particular}</td>
+                                                                <td className="px-2 py-1">{item.quantity}</td>
+                                                                <td className="px-2 py-1">{item.unit}</td>
+                                                                <td className="px-2 py-1">{getUnitPrice(item.item_id)}</td>
+                                                                <td className="px-2 py-1">{item.quantity * getUnitPrice(item.item_id)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <label htmlFor="total" className="font-semibold">Total</label>
+                                            <input type="number" id="total" name="total" value={receiptForm.total} disabled placeholder="Total" className="border rounded p-2" title="Total" />
+                                            <div className="flex justify-end gap-2">
+                                                <Button type="submit" variant="default" disabled={processingId === openReceipt}>Release</Button>
+                                                <Button type="button" variant="outline" onClick={() => setOpenReceipt(null)}>Cancel</Button>
+                                            </div>
+                                        </form>
+                                    </>
+                                )}
                             </DialogContent>
                         </Dialog>
                     );

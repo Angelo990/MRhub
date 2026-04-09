@@ -64,6 +64,10 @@ export function createStatusColumn<TData extends BaseRequestTableRow>(): ColumnD
         Rejected: 'border border-rose-200 bg-rose-50 text-rose-700',
     };
 
+    const statusLabels: Record<string, string> = {
+        'Ready for Pickup': 'Released',
+    };
+
     return {
         accessorKey: 'status',
         header: () => 'Status',
@@ -72,7 +76,7 @@ export function createStatusColumn<TData extends BaseRequestTableRow>(): ColumnD
 
             return (
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[status] ?? 'border border-zinc-200 bg-zinc-50 text-zinc-700'}`}>
-                    {status}
+                    {statusLabels[status] ?? status}
                 </span>
             );
         },

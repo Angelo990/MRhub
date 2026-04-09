@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { usePage } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { type SharedData } from '@/types';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 interface Item {
     id: number;
@@ -25,6 +26,20 @@ interface Item {
     unit: string;
     quantity: number;
     unit_price: string;
+    stock_card_entries: StockCardEntry[];
+}
+
+interface StockCardEntry {
+    id: number;
+    transaction_date: string;
+    movement_type: 'stock_in' | 'stock_out';
+    reference: string | null;
+    party: string | null;
+    quantity: number;
+    unit_cost: string;
+    amount: string;
+    stock_on_hand: number;
+    notes: string | null;
 }
 
 interface PageProps {
@@ -43,11 +58,20 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 
 const Inventory: React.FC = () => {
-    const { items, csrf_token } = (usePage().props as SharedData & PageProps);
+    const { items, csrf_token } = usePage<SharedData & PageProps>().props;
     const [tableData, setTableData] = useState(items);
     const [showModal, setShowModal] = useState(false);
+    const [historyItemId, setHistoryItemId] = useState<number | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [form, setForm] = useState({ id: null as number | null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
+    const [form, setForm] = useState({
+        id: null as number | null,
+        name: '',
+        unit: 'PCS',
+        quantity: '',
+        quantity_adjustment: '',
+        current_quantity: 0,
+        unit_price: '',
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const {
@@ -66,8 +90,125 @@ const Inventory: React.FC = () => {
         setTableData(items);
     }, [items]);
 
+    const selectedHistoryItem = historyItemId === null
+        ? null
+        : tableData.find((item) => item.id === historyItemId) ?? null;
+
+    const formatCurrency = (value: string | number) => {
+        const numericValue = Number(value);
+
+        return `₱ ${numericValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const formatDate = (value: string) => new Date(value).toLocaleDateString();
+
+    const handleExportStockCard = (item: Item) => {
+        exportRowsToExcel(buildStockCardRows(item),
+            'Stock Card',
+            `${item.name.replace(/\s+/g, '_')}_stock_card.xlsx`,
+        );
+    };
+
+    const handleExportStockCardCsv = (item: Item) => {
+        exportRowsToCsv(buildStockCardRows(item), `${item.name.replace(/\s+/g, '_')}_stock_card.csv`);
+    };
+
+    const handleExportStockCardPdf = (item: Item) => {
+        const rows = item.stock_card_entries.map((entry) => {
+            const isStockIn = entry.movement_type === 'stock_in';
+
+            return [
+                isStockIn ? formatDate(entry.transaction_date) : '-',
+                isStockIn ? entry.quantity : '-',
+                isStockIn ? formatCurrency(entry.unit_cost) : '-',
+                isStockIn ? '-' : formatDate(entry.transaction_date),
+                isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? '-'),
+                isStockIn ? '-' : entry.quantity,
+                isStockIn ? '-' : formatCurrency(entry.unit_cost),
+                formatCurrency(entry.amount),
+                entry.stock_on_hand,
+            ];
+        });
+
+        exportRowsToPdf(
+            `Stock Card - ${item.name}`,
+            [
+                { label: 'Article', value: item.name },
+                { label: 'Unit', value: item.unit },
+                { label: 'Stock On Hand', value: item.quantity },
+            ],
+            ['Purchase Date', 'Article Qty', 'Cost', 'Sale Date', 'Supplier / Customer', 'Qty', 'Price', 'Amount', 'Stock On Hand'],
+            rows,
+            `${item.name.replace(/\s+/g, '_')}_stock_card.pdf`,
+        );
+    };
+
+    const handlePrintStockCard = (item: Item) => {
+        const rows = item.stock_card_entries.map((entry) => {
+            const isStockIn = entry.movement_type === 'stock_in';
+
+            return `
+                <tr>
+                    <td>${isStockIn ? formatDate(entry.transaction_date) : '-'}</td>
+                    <td>${isStockIn ? entry.quantity : '-'}</td>
+                    <td>${isStockIn ? formatCurrency(entry.unit_cost) : '-'}</td>
+                    <td>${isStockIn ? '-' : formatDate(entry.transaction_date)}</td>
+                    <td>${isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? '-')}</td>
+                    <td>${isStockIn ? '-' : entry.quantity}</td>
+                    <td>${isStockIn ? '-' : formatCurrency(entry.unit_cost)}</td>
+                    <td>${formatCurrency(entry.amount)}</td>
+                    <td>${entry.stock_on_hand}</td>
+                </tr>
+            `;
+        }).join('');
+
+        printHtmlDocument(
+            `Stock Card - ${item.name}`,
+            `
+                <h1>Stock Card</h1>
+                <div class="meta">
+                    <p><strong>Article:</strong> ${item.name}</p>
+                    <p><strong>Unit:</strong> ${item.unit}</p>
+                    <p><strong>Stock On Hand:</strong> ${item.quantity}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Purchase Date</th>
+                            <th>Article Qty</th>
+                            <th>Cost</th>
+                            <th>Sale Date</th>
+                            <th>Supplier / Customer</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Amount</th>
+                            <th>Stock On Hand</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="9">No stock card history yet.</td></tr>'}</tbody>
+                </table>
+            `,
+        );
+    };
+
+    const buildStockCardRows = (item: Item) => item.stock_card_entries.map((entry) => {
+        const isStockIn = entry.movement_type === 'stock_in';
+
+        return {
+            'Purchase Date': isStockIn ? formatDate(entry.transaction_date) : '',
+            'Article Qty': isStockIn ? entry.quantity : '',
+            Cost: isStockIn ? Number(entry.unit_cost) : '',
+            'Sale Date': isStockIn ? '' : formatDate(entry.transaction_date),
+            'Supplier / Customer': isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? ''),
+            Qty: isStockIn ? '' : entry.quantity,
+            Price: isStockIn ? '' : Number(entry.unit_cost),
+            Amount: Number(entry.amount),
+            'Stock On Hand': entry.stock_on_hand,
+        };
+    });
+
     const resetForm = () => {
-        setForm({ id: null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
+        setForm({ id: null, name: '', unit: 'PCS', quantity: '', quantity_adjustment: '', current_quantity: 0, unit_price: '' });
         setEditMode(false);
         setError(null);
     };
@@ -80,7 +221,9 @@ const Inventory: React.FC = () => {
                 id: item.id,
                 name: item.name,
                 unit: item.unit,
-                quantity: String(item.quantity),
+                quantity: '',
+                quantity_adjustment: '',
+                current_quantity: item.quantity,
                 unit_price: item.unit_price,
             });
         } else {
@@ -112,7 +255,9 @@ const Inventory: React.FC = () => {
             body: JSON.stringify({
                 name: form.name,
                 unit: form.unit,
-                quantity: Number(form.quantity),
+                ...(editMode
+                    ? { quantity_adjustment: Number(form.quantity_adjustment || 0) }
+                    : { quantity: Number(form.quantity) }),
                 unit_price: form.unit_price,
             }),
         });
@@ -185,7 +330,17 @@ const Inventory: React.FC = () => {
             header: () => (
                 <span>Unit Price</span>
             ),
-            cell: info => `₱ ${info.getValue()}`,
+            cell: info => formatCurrency(String(info.getValue())),
+        },
+        {
+            id: 'stock_card_entries',
+            header: () => <span>Stock Card</span>,
+            cell: ({ row }) => (
+                <Button size="sm" variant="secondary" onClick={() => setHistoryItemId(row.original.id)}>
+                    History
+                </Button>
+            ),
+            enableSorting: false,
         },
         {
             id: 'actions',
@@ -276,16 +431,33 @@ const Inventory: React.FC = () => {
                                 <option value="BOT">BOT (Bottle)</option>
                                 <option value="REAM">REAM</option>
                             </select>
-                            <input
-                                type="number"
-                                name="quantity"
-                                placeholder="Quantity"
-                                value={form.quantity}
-                                onChange={handleFormChange}
-                                className="border rounded p-2 dark:bg-gray-800 dark:text-white"
-                                min={0}
-                                required
-                            />
+                            {editMode ? (
+                                <>
+                                    <div className="rounded border bg-gray-50 p-3 text-sm dark:bg-gray-800">
+                                        <div className="font-medium">Current stock on hand: {form.current_quantity}</div>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        name="quantity_adjustment"
+                                        placeholder="Add Quantity"
+                                        value={form.quantity_adjustment}
+                                        onChange={handleFormChange}
+                                        className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                        min={0}
+                                    />
+                                </>
+                            ) : (
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    placeholder="Initial Quantity"
+                                    value={form.quantity}
+                                    onChange={handleFormChange}
+                                    className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                    min={0}
+                                    required
+                                />
+                            )}
                             <input
                                 type="number"
                                 name="unit_price"
@@ -302,6 +474,89 @@ const Inventory: React.FC = () => {
                                 <Button type="submit" variant="default" disabled={loading}>{editMode ? 'Update' : 'Create'}</Button>
                             </div>
                         </form>
+                    </DialogContent>
+                </Dialog>
+                <Dialog open={historyItemId !== null} onOpenChange={(open) => !open && setHistoryItemId(null)}>
+                    <DialogContent className="w-[95vw] max-w-6xl overflow-hidden dark:bg-gray-900 dark:text-white">
+                        <DialogHeader>
+                            <DialogTitle>
+                                Stock Card{selectedHistoryItem ? `: ${selectedHistoryItem.name}` : ''}
+                            </DialogTitle>
+                        </DialogHeader>
+                        {selectedHistoryItem && (
+                            <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-1">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                    <div className="rounded border bg-gray-50 p-3 dark:bg-gray-800">
+                                        <div className="text-sm text-gray-500 dark:text-gray-300">Article</div>
+                                        <div className="font-semibold">{selectedHistoryItem.name}</div>
+                                    </div>
+                                    <div className="rounded border bg-gray-50 p-3 dark:bg-gray-800">
+                                        <div className="text-sm text-gray-500 dark:text-gray-300">Unit</div>
+                                        <div className="font-semibold">{selectedHistoryItem.unit}</div>
+                                    </div>
+                                    <div className="rounded border bg-gray-50 p-3 dark:bg-gray-800">
+                                        <div className="text-sm text-gray-500 dark:text-gray-300">Stock On Hand</div>
+                                        <div className="font-semibold">{selectedHistoryItem.quantity}</div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <Button type="button" variant="outline" onClick={() => handlePrintStockCard(selectedHistoryItem)}>
+                                        Print
+                                    </Button>
+                                    <Button type="button" variant="secondary" onClick={() => handleExportStockCard(selectedHistoryItem)}>
+                                        Export Excel
+                                    </Button>
+                                    <Button type="button" variant="secondary" onClick={() => handleExportStockCardCsv(selectedHistoryItem)}>
+                                        Export CSV
+                                    </Button>
+                                    <Button type="button" variant="secondary" onClick={() => handleExportStockCardPdf(selectedHistoryItem)}>
+                                        Export PDF
+                                    </Button>
+                                </div>
+                                <div className="overflow-x-auto rounded border">
+                                    <table className="min-w-[980px] text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                                            <tr>
+                                                <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-gray-800">Purchase Date</th>
+                                                <th className="px-3 py-2 text-left">Article Qty</th>
+                                                <th className="px-3 py-2 text-left">Cost</th>
+                                                <th className="px-3 py-2 text-left">Sale Date</th>
+                                                <th className="px-3 py-2 text-left">Supplier / Customer</th>
+                                                <th className="px-3 py-2 text-left">Qty</th>
+                                                <th className="px-3 py-2 text-left">Price</th>
+                                                <th className="px-3 py-2 text-left">Amount</th>
+                                                <th className="px-3 py-2 text-left">Stock On Hand</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedHistoryItem.stock_card_entries.length > 0 ? selectedHistoryItem.stock_card_entries.map((entry) => {
+                                                const isStockIn = entry.movement_type === 'stock_in';
+
+                                                return (
+                                                    <tr key={entry.id} className="border-t">
+                                                        <td className="sticky left-0 bg-white px-3 py-2 dark:bg-gray-900">{isStockIn ? formatDate(entry.transaction_date) : '-'}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? entry.quantity : '-'}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? formatCurrency(entry.unit_cost) : '-'}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? '-' : formatDate(entry.transaction_date)}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? '-')}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? '-' : entry.quantity}</td>
+                                                        <td className="px-3 py-2">{isStockIn ? '-' : formatCurrency(entry.unit_cost)}</td>
+                                                        <td className="px-3 py-2">{formatCurrency(entry.amount)}</td>
+                                                        <td className="px-3 py-2 font-semibold">{entry.stock_on_hand}</td>
+                                                    </tr>
+                                                );
+                                            }) : (
+                                                <tr>
+                                                    <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
+                                                        No stock card history yet.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </DialogContent>
                 </Dialog>
             </div>
