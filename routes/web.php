@@ -8,6 +8,8 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index'])
+        ->name('notifications.index');
     Route::post('notifications/{notification}/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])
         ->name('notifications.read');
     Route::post('notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])
