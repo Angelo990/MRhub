@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
 import {
@@ -14,6 +14,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { SharedData } from '@/types';
 
 import {
     useReactTable,
@@ -67,8 +68,14 @@ interface PageProps {
     requests: Request[];
 }
 
+interface RequestResponse {
+    success: boolean;
+    request: Request;
+}
+
 export default function MyRequest() {
-    const { requests, csrf_token } = (usePage().props as unknown as PageProps & { csrf_token: string });
+    const { requests, csrf_token } = (usePage().props as SharedData & PageProps);
+    const [tableData, setTableData] = useState(requests);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -83,11 +90,16 @@ export default function MyRequest() {
         getPaginationSummary,
         globalFilterFn,
     } = useDataTable<Request>();
+
+    useEffect(() => {
+        setTableData(requests);
+    }, [requests]);
+
     const handleMarkReceived = async (id: number) => {
         setLoading(true);
         setError(null);
         try {
-            await fetch(`/department-head/requests/${id}/received`, {
+            const response = await fetch(`/department-head/requests/${id}/received`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -98,7 +110,14 @@ export default function MyRequest() {
                 },
                 body: JSON.stringify({}),
             });
-            window.location.reload();
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || payload.message || 'Failed to mark as received.');
+            }
+
+            const payload = (await response.json()) as RequestResponse;
+            setTableData((current) => current.map((request) => request.id === payload.request.id ? payload.request : request));
         } catch (e: unknown) {
             if (e instanceof Error) {
                 setError(e.message);
@@ -117,9 +136,9 @@ export default function MyRequest() {
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
                 <div className="flex gap-2">
-                    {req.status === 'Ready for Pickup' && (
+                    {(req.status === 'Ready for Pickup' || req.status === 'Released') && (
                         <>
-                            <Button size="sm" variant="default" onClick={() => handleMarkReceived(req.id)} disabled={loading}>
+                            <Button size="sm" variant="default" onClick={() => handleMarkReceived(req.id)} disabled={loading || req.status !== 'Released'}>
                                 Mark as Received
                             </Button>
                             <Button size="sm" variant="secondary" onClick={() => setOpenReceipt(req.id)}>
@@ -137,7 +156,7 @@ export default function MyRequest() {
         ], [handleMarkReceived, loading]);
 
         const table = useReactTable({
-            data: requests,
+            data: tableData,
             columns,
             state: { globalFilter, sorting, pagination },
             getCoreRowModel: getCoreRowModel(),
@@ -183,7 +202,7 @@ export default function MyRequest() {
                     />
                     {/* ...existing code for Dialog, etc... */}
                 {openReceipt && (() => {
-                    const req = requests.find(r => r.id === openReceipt);
+                    const req = tableData.find(r => r.id === openReceipt);
                     const receipt = req?.delivery_receipt;
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
@@ -197,7 +216,7 @@ export default function MyRequest() {
                                         <div><strong>Prepared by:</strong> {receipt.prepared_by}</div>
                                         <div><strong>Checked & Delivered by:</strong> {receipt.checked_by}</div>
                                         <div><strong>Received by:</strong> {receipt.received_by}</div>
-                                        <div><strong>Status:</strong> {req.status === 'Ready for Pickup' ? 'Ready for Pickup' : 'Completed / Received'}</div>
+                                        <div><strong>Status:</strong> {req.status === 'Completed' ? 'Completed / Received' : req.status}</div>
                                         <div><strong>Total:</strong> ₱ {receipt.total}</div>
                                         <div className="font-semibold mt-2">Items</div>
                                         <table className="min-w-full text-sm">

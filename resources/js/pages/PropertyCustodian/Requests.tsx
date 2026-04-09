@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
@@ -13,9 +13,10 @@ import {
 } from '@/components/request-table-columns';
 import { DataTableShell } from '@/components/data-table-shell';
 import { useDataTable } from '@/hooks/use-data-table';
-import { usePage, router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { SharedData } from '@/types';
 
 import {
     useReactTable,
@@ -44,6 +45,10 @@ interface Request {
     requested_by: string;
     status: string;
     items: RequestItem[];
+    delivery_receipt?: {
+        id: number;
+        received_by: string;
+    };
 }
 interface Item {
     id: number;
@@ -57,8 +62,14 @@ interface PageProps {
     [key: string]: unknown;
 }
 
+interface RequestResponse {
+    success: boolean;
+    request: Request;
+}
+
 export default function Requests() {
-    const { requests, items } = usePage<PageProps>().props;
+    const { requests, items, csrf_token } = usePage<SharedData & PageProps>().props;
+    const [tableData, setTableData] = useState(requests);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [receiptForm, setReceiptForm] = useState({
         delivery_date: new Date().toISOString().slice(0, 10),
@@ -68,6 +79,7 @@ export default function Requests() {
         total: '',
     });
     const [error, setError] = useState<string | null>(null);
+    const [processingId, setProcessingId] = useState<number | null>(null);
     const {
         globalFilter,
         sorting,
@@ -79,8 +91,54 @@ export default function Requests() {
         getPaginationSummary,
         globalFilterFn,
     } = useDataTable<Request>();
-    const handleEndorse = (id: number) => {
-        router.post(`/property-custodian/requests/${id}/endorse`);
+
+    useEffect(() => {
+        setTableData(requests);
+    }, [requests]);
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => {
+            if (processingId !== null || openReceipt !== null) {
+                return;
+            }
+
+            router.reload({
+                only: ['requests'],
+                preserveState: true,
+                preserveScroll: true,
+            });
+        }, 5000);
+
+        return () => window.clearInterval(intervalId);
+    }, [openReceipt, processingId]);
+
+    const handleEndorse = async (id: number) => {
+        setProcessingId(id);
+        setError(null);
+
+        try {
+            const response = await fetch(`/property-custodian/requests/${id}/endorse`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || payload.message || 'Failed to endorse request.');
+            }
+
+            const payload = (await response.json()) as RequestResponse;
+            setTableData((current) => current.map((request) => request.id === payload.request.id ? payload.request : request));
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Failed to endorse request.');
+        } finally {
+            setProcessingId(null);
+        }
     };
     const itemsList: Item[] = items || [];
     const getUnitPrice = (itemId: number) => {
@@ -88,12 +146,12 @@ export default function Requests() {
         return found ? found.unit_price : 0;
     };
     const handleOpenReceipt = (id: number) => {
-        const req = requests.find(r => r.id === id);
+        const req = tableData.find(r => r.id === id);
         setReceiptForm({
             delivery_date: new Date().toISOString().slice(0, 10),
             prepared_by: '',
             checked_by: '',
-            received_by: req?.requested_by || '',
+            received_by: req?.delivery_receipt?.received_by || req?.requested_by || '',
             total: req ? req.items.reduce((sum, item) => sum + (item.quantity * getUnitPrice(item.item_id)), 0).toString() : '',
         });
         setOpenReceipt(id);
@@ -103,19 +161,34 @@ export default function Requests() {
         setReceiptForm((prev) => ({ ...prev, [name]: value }));
     };
     const handleSubmitReceipt = async (id: number) => {
+        setProcessingId(id);
         setError(null);
+
         try {
-            await router.post(`/property-custodian/requests/${id}/delivery-receipt`, receiptForm, {
-                onError: (errors: any) => {
-                    setError(errors?.error || 'Failed to generate receipt.');
+            const response = await fetch(`/property-custodian/requests/${id}/delivery-receipt`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf_token,
                 },
-                onSuccess: () => {
-                    setOpenReceipt(null);
-                    setError(null);
-                },
+                body: JSON.stringify(receiptForm),
             });
-        } catch (e: any) {
-            setError(e?.message || 'Failed to generate receipt.');
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || payload.message || 'Failed to release items.');
+            }
+
+            const payload = (await response.json()) as RequestResponse;
+            setTableData((current) => current.map((request) => request.id === payload.request.id ? payload.request : request));
+            setOpenReceipt(null);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Failed to release items.');
+        } finally {
+            setProcessingId(null);
         }
     };
         // --- DataTable columns ---
@@ -130,20 +203,20 @@ export default function Requests() {
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={() => handleEndorse(req.id)} disabled={req.status !== 'Pending Endorsement'}>
+                    <Button size="sm" variant="default" onClick={() => handleEndorse(req.id)} disabled={req.status !== 'Pending Endorsement' || processingId === req.id}>
                         Endorse
                     </Button>
                     {req.status === 'Approved' && (
-                        <Button size="sm" variant="secondary" onClick={() => handleOpenReceipt(req.id)}>
-                            Generate Delivery Receipt
+                        <Button size="sm" variant="secondary" onClick={() => handleOpenReceipt(req.id)} disabled={processingId === req.id}>
+                            Release Items
                         </Button>
                     )}
                 </div>
             )),
-        ], [handleEndorse, handleOpenReceipt]);
+        ], [handleEndorse, handleOpenReceipt, processingId]);
 
         const table = useReactTable({
-            data: requests,
+            data: tableData,
             columns,
             state: { globalFilter, sorting, pagination },
             getCoreRowModel: getCoreRowModel(),
@@ -185,12 +258,12 @@ export default function Requests() {
                     />
                 {/* ...existing code for Dialog, etc... */}
                 {openReceipt && (() => {
-                    const req = requests.find(r => r.id === openReceipt);
+                    const req = tableData.find(r => r.id === openReceipt);
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Generate Delivery Receipt</DialogTitle>
+                                    <DialogTitle>Release Items</DialogTitle>
                                 </DialogHeader>
                                 {error && <div className="text-red-500 mb-2">{error}</div>}
                                 <form className="grid gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
@@ -199,7 +272,7 @@ export default function Requests() {
                                     <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="border rounded p-2" />
                                     <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="border rounded p-2" />
                                     <label htmlFor="received_by" className="font-semibold">Received by</label>
-                                    <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} disabled className="border rounded p-2" title="Received by" placeholder="Received by" />
+                                    <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="border rounded p-2" title="Received by" placeholder="Received by" />
                                     <div className="border rounded p-2 bg-gray-50">
                                         <div className="font-semibold mb-2">Items</div>
                                         <table className="min-w-full text-sm">
@@ -228,7 +301,7 @@ export default function Requests() {
                                     <label htmlFor="total" className="font-semibold">Total</label>
                                     <input type="number" id="total" name="total" value={receiptForm.total} disabled placeholder="Total" className="border rounded p-2" title="Total" />
                                     <div className="flex justify-end gap-2">
-                                        <Button type="submit" variant="default">Submit</Button>
+                                        <Button type="submit" variant="default" disabled={processingId === openReceipt}>Release</Button>
                                         <Button type="button" variant="outline" onClick={() => setOpenReceipt(null)}>Cancel</Button>
                                     </div>
                                 </form>

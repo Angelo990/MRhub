@@ -12,8 +12,8 @@ class RequestApprovalController extends Controller
     // List all requests pending endorsement
     public function index()
     {
-        $requests = Request::with(['items', 'department'])
-            ->whereIn('status', ['Pending Endorsement', 'Pending Approval', 'Approved', 'Ready for Pickup'])
+        $requests = Request::with(['items', 'department', 'deliveryReceipt.items'])
+            ->whereIn('status', ['Pending Endorsement', 'Pending Approval', 'Approved', 'Ready for Pickup', 'Released'])
             ->get();
         $items = \App\Models\Item::all();
         return inertia('PropertyCustodian/Requests', compact('requests', 'items'));
@@ -24,6 +24,14 @@ class RequestApprovalController extends Controller
     {
         $request->status = 'Pending Approval';
         $request->save();
+
+        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+            return response()->json([
+                'success' => true,
+                'request' => $request->load(['items', 'department', 'deliveryReceipt.items']),
+            ]);
+        }
+
         return Redirect::route('property-custodian.requests.index');
     }
 }

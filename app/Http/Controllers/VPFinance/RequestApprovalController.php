@@ -24,6 +24,14 @@ class RequestApprovalController extends Controller
         $request->status = 'Approved';
         $request->approved_by = auth()->user()->name;
         $request->save();
+
+        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+            return response()->json([
+                'success' => true,
+                'request' => $request->load(['items', 'department']),
+            ]);
+        }
+
         return Redirect::route('vp-finance.requests.index');
     }
 
@@ -33,6 +41,14 @@ class RequestApprovalController extends Controller
         $request->status = 'Rejected';
         $request->approved_by = auth()->user()->name;
         $request->save();
+
+        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+            return response()->json([
+                'success' => true,
+                'request' => $request->load(['items', 'department']),
+            ]);
+        }
+
         return Redirect::route('vp-finance.requests.index');
     }
 }

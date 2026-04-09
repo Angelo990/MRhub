@@ -54,10 +54,28 @@ export function createRequestedByColumn<TData extends BaseRequestTableRow>(): Co
 }
 
 export function createStatusColumn<TData extends BaseRequestTableRow>(): ColumnDef<TData> {
+    const statusClasses: Record<string, string> = {
+        'Pending Endorsement': 'border border-amber-200 bg-amber-50 text-amber-700',
+        'Pending Approval': 'border border-sky-200 bg-sky-50 text-sky-700',
+        Approved: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+        'Ready for Pickup': 'border border-violet-200 bg-violet-50 text-violet-700',
+        Released: 'border border-cyan-200 bg-cyan-50 text-cyan-700',
+        Completed: 'border border-slate-200 bg-slate-100 text-slate-700',
+        Rejected: 'border border-rose-200 bg-rose-50 text-rose-700',
+    };
+
     return {
         accessorKey: 'status',
         header: () => 'Status',
-        cell: ({ row }) => row.original.status,
+        cell: ({ row }) => {
+            const status = row.original.status;
+
+            return (
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[status] ?? 'border border-zinc-200 bg-zinc-50 text-zinc-700'}`}>
+                    {status}
+                </span>
+            );
+        },
     };
 }
 

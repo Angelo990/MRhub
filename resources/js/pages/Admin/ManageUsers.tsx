@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
 	useReactTable,
 	getCoreRowModel,
@@ -8,7 +8,7 @@ import {
 	ColumnDef,
 } from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,11 @@ interface PageProps {
 	departments: Department[];
 }
 
+interface UserResponse {
+	success: boolean;
+	user: User;
+}
+
 
 const breadcrumbs: BreadcrumbItem[] = [
 	{ title: 'Dashboard', href: dashboard().url },
@@ -52,6 +57,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const ManageUser: React.FC = () => {
 	const { users, departments, csrf_token } = (usePage().props as SharedData & PageProps);
+	const [tableData, setTableData] = useState(users);
 	const [showModal, setShowModal] = useState(false);
 	const [editMode, setEditMode] = useState(false);
 	const [roles, setRoles] = useState<Role[]>([]);
@@ -71,6 +77,32 @@ const ManageUser: React.FC = () => {
 		globalFilterFn,
 	} = useDataTable<User>();
 
+	useEffect(() => {
+		setTableData(users);
+	}, [users]);
+
+	useEffect(() => {
+		const intervalId = window.setInterval(() => {
+			if (showModal || loading) {
+				return;
+			}
+
+			router.reload({
+				only: ['users'],
+				preserveState: true,
+				preserveScroll: true,
+			});
+		}, 5000);
+
+		return () => window.clearInterval(intervalId);
+	}, [loading, showModal]);
+
+	const resetForm = () => {
+		setForm({ id: null, name: '', email: '', password: '', roles: [], department_id: '' });
+		setEditMode(false);
+		setError(null);
+	};
+
 	const handleDelete = async (id: number) => {
 		if (window.confirm('Are you sure you want to delete this user?')) {
 			setLoading(true);
@@ -86,9 +118,10 @@ const ManageUser: React.FC = () => {
 			});
 			setLoading(false);
 			if (res.ok) {
-				window.location.reload();
+				setTableData((prev) => prev.filter((user) => user.id !== id));
 			} else {
-				setError('Failed to delete user.');
+				const err = await res.json().catch(() => ({}));
+				setError(err.message || 'Failed to delete user.');
 			}
 		}
 	};
@@ -111,8 +144,7 @@ const ManageUser: React.FC = () => {
 				department_id: user.department?.id ? String(user.department.id) : '',
 			});
 		} else {
-			setEditMode(false);
-			setForm({ id: null, name: '', email: '', password: '', roles: [], department_id: '' });
+			resetForm();
 		}
 		setLoading(false);
 		setShowModal(true);
@@ -161,8 +193,16 @@ const ManageUser: React.FC = () => {
 		});
 		setLoading(false);
 		if (res.ok) {
+			const data = (await res.json()) as UserResponse;
+			setTableData((prev) => {
+				if (editMode) {
+					return prev.map((user) => user.id === data.user.id ? data.user : user);
+				}
+
+				return [data.user, ...prev];
+			});
 			setShowModal(false);
-			window.location.reload();
+			resetForm();
 		} else {
 			const err = await res.json().catch(() => ({}));
 			setError(err.message || 'Failed to save user.');
@@ -215,9 +255,6 @@ const ManageUser: React.FC = () => {
 			enableSorting: false,
 		},
 	], [roles]);
-
-	const [tableData, setTableData] = useState(users);
-	React.useEffect(() => { setTableData(users); }, [users]);
 
 	const table = useReactTable({
 		data: tableData,

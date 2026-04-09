@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
 import {
@@ -14,6 +14,7 @@ import { DataTableShell } from '@/components/data-table-shell';
 import { useDataTable } from '@/hooks/use-data-table';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
+import type { SharedData } from '@/types';
 
 import {
     useReactTable,
@@ -48,9 +49,17 @@ interface Request {
 interface PageProps {
     requests: Request[];
 }
+
+interface RequestResponse {
+    success: boolean;
+    request: Request;
+}
+
 export default function Requests() {
     // Main component logic starts here
-    const { requests } = (usePage().props as unknown as PageProps);
+    const { requests, csrf_token } = (usePage().props as SharedData & PageProps);
+    const [tableData, setTableData] = useState(requests);
+    const [processingId, setProcessingId] = useState<number | null>(null);
     const {
         globalFilter,
         sorting,
@@ -62,11 +71,77 @@ export default function Requests() {
         getPaginationSummary,
         globalFilterFn,
     } = useDataTable<Request>();
-    const handleApprove = (id: number) => {
-        router.post(`/vp-finance/requests/${id}/approve`);
+
+    useEffect(() => {
+        setTableData(requests);
+    }, [requests]);
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => {
+            if (processingId !== null) {
+                return;
+            }
+
+            router.reload({
+                only: ['requests'],
+                preserveState: true,
+                preserveScroll: true,
+            });
+        }, 5000);
+
+        return () => window.clearInterval(intervalId);
+    }, [processingId]);
+
+    const handleApprove = async (id: number) => {
+        setProcessingId(id);
+
+        try {
+            const response = await fetch(`/vp-finance/requests/${id}/approve`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || payload.message || 'Failed to approve request.');
+            }
+
+            const payload = (await response.json()) as RequestResponse;
+            setTableData((current) => current.filter((request) => request.id !== payload.request.id));
+        } finally {
+            setProcessingId(null);
+        }
     };
-    const handleReject = (id: number) => {
-        router.post(`/vp-finance/requests/${id}/reject`);
+
+    const handleReject = async (id: number) => {
+        setProcessingId(id);
+
+        try {
+            const response = await fetch(`/vp-finance/requests/${id}/reject`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || payload.message || 'Failed to reject request.');
+            }
+
+            const payload = (await response.json()) as RequestResponse;
+            setTableData((current) => current.filter((request) => request.id !== payload.request.id));
+        } finally {
+            setProcessingId(null);
+        }
     };
         // --- DataTable columns ---
         const columns: ColumnDef<Request>[] = useMemo(() => [
@@ -78,14 +153,14 @@ export default function Requests() {
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={() => handleApprove(req.id)}>Approve</Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)}>Reject</Button>
+                    <Button size="sm" variant="default" onClick={() => handleApprove(req.id)} disabled={processingId === req.id}>Approve</Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={processingId === req.id}>Reject</Button>
                 </div>
             )),
-        ], [handleApprove, handleReject]);
+        ], [handleApprove, handleReject, processingId]);
 
         const table = useReactTable({
-            data: requests,
+            data: tableData,
             columns,
             state: { globalFilter, sorting, pagination },
             getCoreRowModel: getCoreRowModel(),

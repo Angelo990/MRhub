@@ -31,6 +31,11 @@ interface PageProps {
     items: Item[];
 }
 
+interface ItemResponse {
+    success: boolean;
+    item: Item;
+}
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: dashboard().url },
     { title: 'Inventory', href: '/property-custodian/items' },
@@ -39,6 +44,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const Inventory: React.FC = () => {
     const { items, csrf_token } = (usePage().props as SharedData & PageProps);
+    const [tableData, setTableData] = useState(items);
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [form, setForm] = useState({ id: null as number | null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
@@ -56,6 +62,16 @@ const Inventory: React.FC = () => {
         globalFilterFn,
     } = useDataTable<Item>();
 
+    React.useEffect(() => {
+        setTableData(items);
+    }, [items]);
+
+    const resetForm = () => {
+        setForm({ id: null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
+        setEditMode(false);
+        setError(null);
+    };
+
     const openModal = (item?: Item) => {
         setError(null);
         if (item) {
@@ -68,8 +84,7 @@ const Inventory: React.FC = () => {
                 unit_price: item.unit_price,
             });
         } else {
-            setEditMode(false);
-            setForm({ id: null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
+            resetForm();
         }
         setShowModal(true);
     };
@@ -103,8 +118,16 @@ const Inventory: React.FC = () => {
         });
         setLoading(false);
         if (res.ok) {
+            const data = (await res.json()) as ItemResponse;
+            setTableData((prev) => {
+                if (editMode) {
+                    return prev.map((item) => item.id === data.item.id ? data.item : item);
+                }
+
+                return [data.item, ...prev];
+            });
             setShowModal(false);
-            window.location.reload();
+            resetForm();
         } else {
             const err = await res.json().catch(() => ({}));
             setError(err.message || 'Failed to save item.');
@@ -126,9 +149,10 @@ const Inventory: React.FC = () => {
             });
             setLoading(false);
             if (res.ok) {
-                window.location.reload();
+				setTableData((prev) => prev.filter((item) => item.id !== id));
             } else {
-                setError('Failed to delete item.');
+				const err = await res.json().catch(() => ({}));
+				setError(err.message || 'Failed to delete item.');
             }
         }
     };
@@ -177,7 +201,7 @@ const Inventory: React.FC = () => {
     ], []);
 
     const table = useReactTable({
-        data: items,
+        data: tableData,
         columns,
         state: {
             sorting,
