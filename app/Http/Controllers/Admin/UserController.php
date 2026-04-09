@@ -48,6 +48,11 @@ class UserController extends Controller
         if (!empty($data['roles'])) {
             $user->syncRoles($data['roles']);
         }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'user' => $user->load(['roles', 'department'])], 201);
+        }
+
         return Redirect::route('admin.users.index');
     }
 
@@ -77,19 +82,21 @@ class UserController extends Controller
         $user->department_id = $data['department_id'] ?? null;
         $user->save();
         $user->syncRoles($data['roles'] ?? []);
-        if ($request->expectsJson()) {
-            return response()->json(['success' => true, 'user' => $user]);
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'user' => $user->load(['roles', 'department'])]);
         }
         return Redirect::route('admin.users.index');
     }
 
     // Delete user
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
         $user->delete();
-        if (request()->expectsJson()) {
+
+        if ($request->expectsJson() || $request->ajax()) {
             return response()->json(['success' => true]);
         }
+
         return Redirect::route('admin.users.index');
     }
 }
