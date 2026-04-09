@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\PropertyCustodian;
 
 use App\Models\Item;
+use App\Models\StockCardEntry;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -12,7 +13,7 @@ class ItemController extends Controller
 {
     public function index()
     {
-        $items = Item::all();
+        $items = Item::with('stockCardEntries')->get();
         return Inertia::render('PropertyCustodian/Inventory', compact('items'));
     }
 
@@ -26,8 +27,23 @@ class ItemController extends Controller
         ]);
         $item = Item::create($data);
 
+        if ((int) $item->quantity > 0) {
+            $this->recordStockCardEntry(
+                item: $item,
+                createdBy: $request->user()?->id,
+                transactionDate: now()->toDateString(),
+                movementType: 'stock_in',
+                reference: 'Initial stock',
+                party: null,
+                quantity: (int) $item->quantity,
+                unitCost: (float) $item->unit_price,
+                stockOnHand: (int) $item->quantity,
+                notes: 'Initial inventory entry'
+            );
+        }
+
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['success' => true, 'item' => $item], 201);
+            return response()->json(['success' => true, 'item' => $item->load('stockCardEntries')], 201);
         }
 
         return Redirect::route('property-custodian.items.index');
@@ -38,13 +54,35 @@ class ItemController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:20',
-            'quantity' => 'required|integer|min:0',
             'unit_price' => 'required|numeric|min:0',
+            'quantity_adjustment' => 'nullable|integer|min:0',
         ]);
-        $item->update($data);
+
+        $quantityAdjustment = (int) ($data['quantity_adjustment'] ?? 0);
+
+        $item->name = $data['name'];
+        $item->unit = $data['unit'];
+        $item->unit_price = $data['unit_price'];
+        $item->quantity += $quantityAdjustment;
+        $item->save();
+
+        if ($quantityAdjustment > 0) {
+            $this->recordStockCardEntry(
+                item: $item,
+                createdBy: $request->user()?->id,
+                transactionDate: now()->toDateString(),
+                movementType: 'stock_in',
+                reference: 'Manual stock addition',
+                party: null,
+                quantity: $quantityAdjustment,
+                unitCost: (float) $item->unit_price,
+                stockOnHand: (int) $item->quantity,
+                notes: 'Quantity added through inventory update'
+            );
+        }
 
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['success' => true, 'item' => $item->fresh()]);
+            return response()->json(['success' => true, 'item' => $item->fresh()->load('stockCardEntries')]);
         }
 
         return Redirect::route('property-custodian.items.index');
@@ -59,5 +97,32 @@ class ItemController extends Controller
         }
 
         return Redirect::route('property-custodian.items.index');
+    }
+
+    protected function recordStockCardEntry(
+        Item $item,
+        ?int $createdBy,
+        string $transactionDate,
+        string $movementType,
+        ?string $reference,
+        ?string $party,
+        int $quantity,
+        float $unitCost,
+        int $stockOnHand,
+        ?string $notes,
+    ): void {
+        StockCardEntry::create([
+            'item_id' => $item->id,
+            'created_by' => $createdBy,
+            'transaction_date' => $transactionDate,
+            'movement_type' => $movementType,
+            'reference' => $reference,
+            'party' => $party,
+            'quantity' => $quantity,
+            'unit_cost' => $unitCost,
+            'amount' => $quantity * $unitCost,
+            'stock_on_hand' => $stockOnHand,
+            'notes' => $notes,
+        ]);
     }
 }

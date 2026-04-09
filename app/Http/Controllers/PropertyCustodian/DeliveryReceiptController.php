@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Models\DeliveryReceipt;
 use App\Models\DeliveryReceiptItem;
 use App\Models\Item;
+use App\Models\StockCardEntry;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,6 @@ class DeliveryReceiptController extends Controller
                 if ($item->quantity < $reqItem->quantity) {
                     throw new \Exception("Not enough stock for item: {$item->name}");
                 }
-                $item->quantity -= $reqItem->quantity;
-                $item->save();
             }
             // Create delivery receipt
             $receipt = DeliveryReceipt::create([
@@ -39,16 +38,36 @@ class DeliveryReceiptController extends Controller
             ]);
             // Create delivery receipt items
             foreach ($request->items as $reqItem) {
+                $item = Item::findOrFail($reqItem->item_id);
+                $unitCost = (float) $item->unit_price;
+
+                $item->quantity -= $reqItem->quantity;
+                $item->save();
+
                 DeliveryReceiptItem::create([
                     'delivery_receipt_id' => $receipt->id,
                     'item_id' => $reqItem->item_id,
                     'quantity_requested' => $reqItem->quantity,
                     'quantity_delivered' => $reqItem->quantity, // assuming all delivered
                     'quantity_undelivered' => 0,
-                    'unit_cost' => Item::find($reqItem->item_id)->unit_price,
-                    'total' => Item::find($reqItem->item_id)->unit_price * $reqItem->quantity,
+                    'unit_cost' => $unitCost,
+                    'total' => $unitCost * $reqItem->quantity,
                     'particular' => $reqItem->particular,
                     'unit' => $reqItem->unit,
+                ]);
+
+                StockCardEntry::create([
+                    'item_id' => $item->id,
+                    'created_by' => $httpRequest->user()?->id,
+                    'transaction_date' => $receipt->delivery_date,
+                    'movement_type' => 'stock_out',
+                    'reference' => 'Released item',
+                    'party' => $receipt->received_by,
+                    'quantity' => $reqItem->quantity,
+                    'unit_cost' => $unitCost,
+                    'amount' => $unitCost * $reqItem->quantity,
+                    'stock_on_hand' => (int) $item->quantity,
+                    'notes' => "Released via delivery receipt #{$receipt->id}",
                 ]);
             }
             $request->status = 'Released';

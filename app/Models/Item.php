@@ -15,4 +15,11 @@ class Item extends Model
         'quantity',
         'unit_price',
     ];
+
+    public function stockCardEntries()
+    {
+        return $this->hasMany(StockCardEntry::class)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id');
+    }
 }
