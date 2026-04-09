@@ -35,7 +35,7 @@ class DeliveryReceiptController extends Controller
                 'checked_by' => $httpRequest->input('checked_by'),
                 'received_by' => $httpRequest->input('received_by'),
                 'total' => $httpRequest->input('total'),
-                'status' => 'Ready for Pickup',
+                'status' => 'Released',
             ]);
             // Create delivery receipt items
             foreach ($request->items as $reqItem) {
@@ -51,13 +51,26 @@ class DeliveryReceiptController extends Controller
                     'unit' => $reqItem->unit,
                 ]);
             }
-            $request->status = 'Ready for Pickup';
+            $request->status = 'Released';
             $request->save();
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+
+            if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
+
             return Redirect::back()->withErrors(['error' => $e->getMessage()]);
         }
+
+        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+            return response()->json([
+                'success' => true,
+                'request' => $request->fresh()->load(['items', 'department', 'deliveryReceipt.items']),
+            ]);
+        }
+
         return Redirect::route('property-custodian.requests.index');
     }
 }
