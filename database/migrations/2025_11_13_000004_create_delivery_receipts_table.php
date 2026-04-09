@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->string('checked_by');
             $table->string('received_by');
             $table->decimal('total', 12, 2)->default(0);
-            $table->string('status')->default('Ready for Pickup');
+            $table->string('status')->default('Released');
             $table->timestamps();
         });
     }
