@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+import dashboard from '@/routes/dashboard';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePreset, type DashboardDatePresetId } from '../../lib/dashboard-date-filters';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -12,7 +13,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: dashboard.admin().url,
     },
 ];
 
@@ -39,11 +40,13 @@ export default function Dashboard() {
     const departmentColors = ['#0f766e', '#0284c7', '#7c3aed', '#c2410c', '#be123c', '#4f46e5', '#15803d'];
     const chartIds = ['users-by-role', 'requests-by-status', 'users-by-department'];
     const storageKey = 'dashboard:admin:layout';
+    const filterStorageKey = 'dashboard:admin:filters';
     const [editMode, setEditMode] = useState(false);
     const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
     const [chartOrder, setChartOrder] = useState(chartIds);
     const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
     const [filterTo, setFilterTo] = useState(filters.to ?? '');
+    const [activePreset, setActivePreset] = useState<DashboardDatePresetId>(detectDashboardDatePreset(filters.from ?? '', filters.to ?? ''));
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
         'users-by-role': true,
         'requests-by-status': true,
@@ -163,7 +166,47 @@ export default function Dashboard() {
     useEffect(() => {
         setFilterFrom(filters.from ?? '');
         setFilterTo(filters.to ?? '');
+        setActivePreset(detectDashboardDatePreset(filters.from ?? '', filters.to ?? ''));
     }, [filters.from, filters.to]);
+
+    useEffect(() => {
+        const raw = window.localStorage.getItem(filterStorageKey);
+
+        if (!raw || filters.from || filters.to) {
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(raw) as { from?: string | null; to?: string | null };
+            const storedFrom = parsed.from ?? '';
+            const storedTo = parsed.to ?? '';
+
+            if (!storedFrom && !storedTo) {
+                return;
+            }
+
+            setFilterFrom(storedFrom);
+            setFilterTo(storedTo);
+            setActivePreset(detectDashboardDatePreset(storedFrom, storedTo));
+            router.get(dashboard.admin().url, {
+                ...(storedFrom ? { from: storedFrom } : {}),
+                ...(storedTo ? { to: storedTo } : {}),
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        } catch {
+            window.localStorage.removeItem(filterStorageKey);
+        }
+    }, []);
+
+    useEffect(() => {
+        window.localStorage.setItem(filterStorageKey, JSON.stringify({
+            from: filterFrom || null,
+            to: filterTo || null,
+        }));
+    }, [filterFrom, filterTo]);
 
     useEffect(() => {
         const raw = window.localStorage.getItem(storageKey);
@@ -311,7 +354,8 @@ export default function Dashboard() {
     };
 
     const handleApplyFilters = () => {
-        router.get(dashboard().url, {
+        setActivePreset(detectDashboardDatePreset(filterFrom, filterTo));
+        router.get(dashboard.admin().url, {
             ...(filterFrom ? { from: filterFrom } : {}),
             ...(filterTo ? { to: filterTo } : {}),
         }, {
@@ -324,7 +368,21 @@ export default function Dashboard() {
     const handleResetFilters = () => {
         setFilterFrom('');
         setFilterTo('');
-        router.get(dashboard().url, {}, {
+        setActivePreset('custom');
+        router.get(dashboard.admin().url, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    const handlePresetSelect = (presetId: Exclude<DashboardDatePresetId, 'custom'>) => {
+        const range = buildDashboardDateRange(presetId);
+
+        setFilterFrom(range.from);
+        setFilterTo(range.to);
+        setActivePreset(presetId);
+        router.get(dashboard.admin().url, range, {
             preserveState: true,
             preserveScroll: true,
             replace: true,
@@ -374,6 +432,13 @@ export default function Dashboard() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <div className="flex flex-wrap gap-2 md:w-full">
+                            {DASHBOARD_DATE_PRESETS.map((preset) => (
+                                <Button key={preset.id} type="button" variant={activePreset === preset.id ? 'default' : 'outline'} onClick={() => handlePresetSelect(preset.id)}>
+                                    {preset.label}
+                                </Button>
+                            ))}
+                        </div>
                         <label className="flex flex-1 flex-col gap-2 text-sm">
                             <span>From</span>
                             <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
