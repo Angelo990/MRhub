@@ -14,22 +14,34 @@ use Inertia\Inertia;
 class RequestController extends Controller
     {
     // Mark request as received
-    public function markReceived(\App\Models\Request $request)
+    public function markReceived(HttpRequest $httpRequest, \App\Models\Request $request)
     {
         $request->status = 'Completed';
         $request->save();
+
+        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+            return response()->json([
+                'success' => true,
+                'request' => $request->load(['items', 'department', 'deliveryReceipt.items']),
+            ]);
+        }
+
         return Redirect::route('department-head.requests.index');
     }
 
     // List all requests for department head
     public function index()
     {
+        $user = auth()->user();
+
         $requests = Request::with(['items', 'department', 'deliveryReceipt.items'])
-                ->where('department_id', auth()->user()->department_id)
-            ->whereIn('status', ['Ready for Pickup', 'Completed'])
+            ->where('department_id', $user->department_id)
+            ->latest()
             ->get();
-            $csrf_token = csrf_token();
-            return Inertia::render('DepartmentHead/MyRequest', compact('requests', 'csrf_token'));
+
+        $csrf_token = csrf_token();
+
+        return Inertia::render('DepartmentHead/MyRequest', compact('requests', 'csrf_token'));
     }
 
     // Show form for creating a new request
@@ -43,9 +55,10 @@ class RequestController extends Controller
     // Store a new request
     public function store(HttpRequest $request)
     {
+        $user = auth()->user();
+
         $data = $request->validate([
             'date' => 'required|date',
-            'department_id' => 'required|exists:departments,id',
             'purpose' => 'required|string',
             'requested_by' => 'required|string',
             'reviewed_by' => 'nullable|string',
@@ -62,7 +75,7 @@ class RequestController extends Controller
 
         $requestModel = Request::create([
             'date' => $data['date'],
-            'department_id' => $data['department_id'],
+            'department_id' => $user->department_id,
             'purpose' => $data['purpose'],
             'requested_by' => $data['requested_by'],
             'reviewed_by' => $data['reviewed_by'] ?? null,
