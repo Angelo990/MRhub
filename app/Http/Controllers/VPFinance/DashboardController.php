@@ -12,6 +12,17 @@ class DashboardController extends Controller
 {
     public function __invoke()
     {
+        $highestPendingRequest = DB::table('request_items')
+            ->join('requests', 'requests.id', '=', 'request_items.request_id')
+            ->join('departments', 'departments.id', '=', 'requests.department_id')
+            ->join('items', 'items.id', '=', 'request_items.item_id')
+            ->where('requests.status', 'Pending Approval')
+            ->select('departments.name')
+            ->selectRaw('SUM(request_items.quantity * items.unit_price) as total_cost')
+            ->groupBy('requests.id', 'departments.name')
+            ->orderByDesc('total_cost')
+            ->first();
+
         $departmentRequestCost = DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->join('departments', 'departments.id', '=', 'requests.department_id')
@@ -86,6 +97,8 @@ class DashboardController extends Controller
                 ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
                 ->value('total_cost') / max(SupplyRequest::count(), 1)),
             'pendingApprovals' => SupplyRequest::where('status', 'Pending Approval')->count(),
+            'highestPendingRequestValue' => (float) ($highestPendingRequest->total_cost ?? 0),
+            'highestPendingRequestDepartment' => $highestPendingRequest->name ?? 'No pending approvals',
         ];
 
         return Inertia::render('VPFinance/Dashboard', [
