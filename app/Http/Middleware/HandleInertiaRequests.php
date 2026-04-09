@@ -38,6 +38,31 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $notifications = ['items' => [], 'unreadCount' => 0];
+
+        if ($request->user()) {
+            $notifications = [
+                'items' => $request->user()
+                    ->notifications()
+                    ->latest()
+                    ->limit(8)
+                    ->get()
+                    ->map(fn ($notification) => [
+                        'id' => $notification->id,
+                        'title' => $notification->data['title'] ?? 'Workflow update',
+                        'message' => $notification->data['message'] ?? '',
+                        'actionUrl' => $notification->data['action_url'] ?? null,
+                        'actionLabel' => $notification->data['action_label'] ?? 'Open',
+                        'type' => $notification->data['type'] ?? 'workflow',
+                        'status' => $notification->data['status'] ?? null,
+                        'readAt' => optional($notification->read_at)?->toIso8601String(),
+                        'createdAt' => optional($notification->created_at)?->toIso8601String(),
+                    ])
+                    ->values(),
+                'unreadCount' => $request->user()->unreadNotifications()->count(),
+            ];
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -46,6 +71,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'notifications' => $notifications,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -8,6 +8,7 @@ use App\Models\DeliveryReceipt;
 use App\Models\DeliveryReceiptItem;
 use App\Models\Item;
 use App\Models\StockCardEntry;
+use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ class DeliveryReceiptController extends Controller
     // Generate delivery receipt for approved request
     public function store(HttpRequest $httpRequest, Request $request)
     {
+        $actor = $httpRequest->user();
+
         // Check inventory for each item
         DB::beginTransaction();
         try {
@@ -82,6 +85,8 @@ class DeliveryReceiptController extends Controller
 
             return Redirect::back()->withErrors(['error' => $e->getMessage()]);
         }
+
+        WorkflowNotifier::requestReleased($request->fresh()->loadMissing('department'), $actor);
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([

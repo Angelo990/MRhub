@@ -8,6 +8,11 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('notifications/{notification}/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])
+        ->name('notifications.read');
+    Route::post('notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])
+        ->name('notifications.read-all');
+
     // Main dashboard route redirects to the correct dashboard
     Route::get('dashboard', function () {
         $user = auth()->user();

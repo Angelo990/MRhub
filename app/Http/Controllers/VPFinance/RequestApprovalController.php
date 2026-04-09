@@ -4,6 +4,7 @@ namespace App\Http\Controllers\VPFinance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Request;
+use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
 
@@ -25,6 +26,8 @@ class RequestApprovalController extends Controller
         $request->approved_by = auth()->user()->name;
         $request->save();
 
+        WorkflowNotifier::requestApproved($request->loadMissing('department'), $httpRequest->user());
+
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([
                 'success' => true,
@@ -41,6 +44,8 @@ class RequestApprovalController extends Controller
         $request->status = 'Rejected';
         $request->approved_by = auth()->user()->name;
         $request->save();
+
+        WorkflowNotifier::requestRejected($request->loadMissing('department'), $httpRequest->user());
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([

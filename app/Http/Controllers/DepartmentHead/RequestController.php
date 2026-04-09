@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\Department;
 use App\Models\Item;
+use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
@@ -18,6 +19,8 @@ class RequestController extends Controller
     {
         $request->status = 'Completed';
         $request->save();
+
+        WorkflowNotifier::requestCompleted($request->loadMissing('department'), $httpRequest->user());
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([
@@ -99,6 +102,8 @@ class RequestController extends Controller
                 'unit' => $inventoryItem->unit,
             ]);
         }
+
+        WorkflowNotifier::requestSubmitted($requestModel->loadMissing('department'), $user);
 
         return Redirect::route('department-head.requests.index');
     }

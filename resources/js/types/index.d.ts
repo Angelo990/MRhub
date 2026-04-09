@@ -5,6 +5,18 @@ export interface Auth {
     user: User;
 }
 
+export interface NotificationItem {
+    id: string;
+    title: string;
+    message: string;
+    actionUrl: string | null;
+    actionLabel: string;
+    type: string;
+    status: string | null;
+    readAt: string | null;
+    createdAt: string | null;
+}
+
 export interface BreadcrumbItem {
     title: string;
     href: string;
@@ -27,6 +39,10 @@ export interface SharedData {
     csrf_token: string;
     quote: { message: string; author: string };
     auth: Auth;
+    notifications: {
+        items: NotificationItem[];
+        unreadCount: number;
+    };
     sidebarOpen: boolean;
     [key: string]: unknown;
 }
