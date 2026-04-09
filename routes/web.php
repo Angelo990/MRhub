@@ -28,13 +28,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('role:property-custodian')
         ->name('dashboard.property-custodian');
 
-    Route::get('dashboard/vp-finance', function () {
-        return Inertia::render('VPFinance/Dashboard');
-    })->middleware('role:vp-finance')->name('dashboard.vp-finance');
+    Route::get('dashboard/vp-finance', \App\Http\Controllers\VPFinance\DashboardController::class)
+        ->middleware('role:vp-finance')
+        ->name('dashboard.vp-finance');
 
-    Route::get('dashboard/department-head', function () {
-        return Inertia::render('DepartmentHead/Dashboard');
-    })->middleware('role:department-head')->name('dashboard.department-head');
+    Route::get('dashboard/department-head', \App\Http\Controllers\DepartmentHead\DashboardController::class)
+        ->middleware('role:department-head')
+        ->name('dashboard.department-head');
 
     Route::get('dashboard/admin', \App\Http\Controllers\Admin\DashboardController::class)
         ->middleware('role:admin')
