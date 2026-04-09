@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Department {
     id: number;
@@ -11,6 +10,7 @@ interface Department {
 interface Item {
     id: number;
     name: string;
+    unit: string;
     unit_price: string;
 }
 interface PageProps {
@@ -18,8 +18,22 @@ interface PageProps {
     items: Item[];
 }
 
+interface AuthUser {
+    name?: string;
+    department_id?: number | string;
+    department?: {
+        name?: string;
+    };
+}
+
+interface CreateRequestPageProps extends PageProps {
+    auth?: {
+        user?: AuthUser;
+    };
+}
+
 export default function CreateRequest() {
-    const { departments, items, auth } = usePage<{ [key: string]: any } & PageProps>().props;
+    const { departments, items, auth } = usePage<CreateRequestPageProps>().props;
     const today = new Date().toISOString().slice(0, 10);
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
     const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
@@ -48,6 +62,7 @@ export default function CreateRequest() {
                         ...items[idx],
                         item_id: value,
                         particular: selectedItem ? selectedItem.name : '',
+                        unit: selectedItem ? selectedItem.unit : '',
                     };
                 } else {
                     items[idx] = { ...items[idx], [name]: value };
@@ -129,7 +144,7 @@ export default function CreateRequest() {
                                     </select>
                                     <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
                                     <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
-                                    <input type="text" name="unit" placeholder="Unit" value={item.unit} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Unit" />
+                                    <input type="text" name="unit" placeholder="Unit" value={item.unit} className="border rounded p-2 w-full" disabled title="Unit" />
                                     <Button type="button" variant="destructive" onClick={() => removeItem(idx)} className="w-full">Remove</Button>
                                 </div>
                             ))}

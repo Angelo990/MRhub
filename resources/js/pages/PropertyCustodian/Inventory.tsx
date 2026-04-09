@@ -4,21 +4,25 @@ import {
     getCoreRowModel,
     getSortedRowModel,
     getFilteredRowModel,
-    flexRender,
-    SortingState,
+    getPaginationRowModel,
     ColumnDef,
 } from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
+import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
+import { DataTableShell } from '@/components/data-table-shell';
+import { useDataTable } from '@/hooks/use-data-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { usePage } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 
 interface Item {
     id: number;
     name: string;
+    unit: string;
     quantity: number;
     unit_price: string;
 }
@@ -34,18 +38,23 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 
 const Inventory: React.FC = () => {
-    const { items } = (usePage().props as unknown as PageProps);
+    const { items, csrf_token } = (usePage().props as SharedData & PageProps);
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
-    const [form, setForm] = useState({ id: null as number | null, name: '', quantity: '', unit_price: '' });
+    const [form, setForm] = useState({ id: null as number | null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [globalFilter, setGlobalFilter] = useState('');
-    const [sorting, setSorting] = useState<SortingState>([]);
-    const [pageSize, setPageSize] = useState(10);
-    const [pageIndex, setPageIndex] = useState(0);
-
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const {
+        globalFilter,
+        sorting,
+        pagination,
+        setPagination,
+        setSorting,
+        handleSearchChange,
+        handlePageSizeChange,
+        getPaginationSummary,
+        globalFilterFn,
+    } = useDataTable<Item>();
 
     const openModal = (item?: Item) => {
         setError(null);
@@ -54,17 +63,18 @@ const Inventory: React.FC = () => {
             setForm({
                 id: item.id,
                 name: item.name,
+                unit: item.unit,
                 quantity: String(item.quantity),
                 unit_price: item.unit_price,
             });
         } else {
             setEditMode(false);
-            setForm({ id: null, name: '', quantity: '', unit_price: '' });
+            setForm({ id: null, name: '', unit: 'PCS', quantity: '', unit_price: '' });
         }
         setShowModal(true);
     };
 
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setForm((prev) => ({ ...prev, [name]: value }));
     };
@@ -81,11 +91,12 @@ const Inventory: React.FC = () => {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': token,
+                'X-CSRF-TOKEN': csrf_token,
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({
                 name: form.name,
+                unit: form.unit,
                 quantity: Number(form.quantity),
                 unit_price: form.unit_price,
             }),
@@ -108,7 +119,7 @@ const Inventory: React.FC = () => {
                 method: 'DELETE',
                 credentials: 'same-origin',
                 headers: {
-                    'X-CSRF-TOKEN': token,
+                    'X-CSRF-TOKEN': csrf_token,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
@@ -128,6 +139,13 @@ const Inventory: React.FC = () => {
             accessorKey: 'name',
             header: () => (
                 <span>Name</span>
+            ),
+            cell: info => info.getValue(),
+        },
+        {
+            accessorKey: 'unit',
+            header: () => (
+                <span>Unit</span>
             ),
             cell: info => info.getValue(),
         },
@@ -164,21 +182,19 @@ const Inventory: React.FC = () => {
         state: {
             sorting,
             globalFilter,
+            pagination,
         },
         onSortingChange: setSorting,
-        onGlobalFilterChange: setGlobalFilter,
+        onGlobalFilterChange: handleSearchChange,
+        onPaginationChange: setPagination,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        globalFilterFn,
     });
 
-    // Pagination helpers
-    const pageRows = useMemo(() => {
-        const start = pageIndex * pageSize;
-        return table.getRowModel().rows.slice(start, start + pageSize);
-    }, [table, pageIndex, pageSize]);
-
-    const pageCount = Math.ceil(table.getRowModel().rows.length / pageSize);
+    const { totalRows, totalPages, showingFrom, showingTo } = getPaginationSummary(table);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -188,97 +204,25 @@ const Inventory: React.FC = () => {
                     <h1 className="text-2xl font-bold">Inventory Management</h1>
                     <Button variant="default" onClick={() => openModal()}>Add Item</Button>
                 </div>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <div>
-                        Show
-                        <label className="mr-2" htmlFor="entries-select">Show</label>
-                        <select
-                            id="entries-select"
-                            className="mx-2 border rounded px-2 py-1 dark:bg-gray-800 dark:text-white"
-                            value={pageSize}
-                            onChange={e => {
-                                setPageSize(Number(e.target.value));
-                                setPageIndex(0);
-                            }}
-                            title="Show entries"
-                        >
-                            {[10, 25, 50, 100].map(size => (
-                                <option key={size} value={size}>{size}</option>
-                            ))}
-                        </select>
-                        entries
-                    </div>
-                    <input
-                        className="search-input border rounded px-2 py-1 dark:bg-gray-800 dark:text-white max-w-xs"
-                        placeholder="Search..."
-                        value={globalFilter ?? ''}
-                        onChange={e => {
-                            setGlobalFilter(e.target.value);
-                            setPageIndex(0);
-                        }}
-                    />
-                </div>
-                <div className="overflow-x-auto rounded-xl shadow dark:bg-gray-800">
-                    <table className="min-w-full bg-white dark:bg-gray-900">
-                        <thead>
-                            {table.getHeaderGroups().map(headerGroup => (
-                                <tr key={headerGroup.id} className="bg-gray-50 dark:bg-gray-800">
-                                    {headerGroup.headers.map(header => (
-                                        <th
-                                            key={header.id}
-                                            className="py-2 px-4 text-left relative"
-                                            colSpan={header.colSpan}
-                                        >
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    {...{
-                                                        className: header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none flex items-center'
-                                                            : '',
-                                                        onClick: header.column.getToggleSortingHandler(),
-                                                    }}
-                                                >
-                                                    {flexRender(header.column.columnDef.header, header.getContext())}
-                                                    {header.column.getCanSort() && (
-                                                        <span className={`sort-arrows ml-1 ${header.column.getIsSorted() ? 'active' : ''}`}>
-                                                            <span className={`arrow-up${header.column.getIsSorted() === 'asc' ? ' active' : ''}`}></span>
-                                                            <span className={`arrow-down${header.column.getIsSorted() === 'desc' ? ' active' : ''}`}></span>
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </th>
-                                    ))}
-                                </tr>
-                            ))}
-                        </thead>
-                        <tbody>
-                            {pageRows.length > 0 ? pageRows.map(row => (
-                                <tr key={row.id} className="border-b dark:border-gray-700">
-                                    {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id} className="py-2 px-4">
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </td>
-                                    ))}
-                                </tr>
-                            )) : (
-                                <tr><td colSpan={columns.length} className="text-center py-4 text-gray-400">No items found.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                {/* Pagination */}
-                <div className="flex justify-between items-center mt-2">
-                    <div>
-                        Page {pageIndex + 1} of {pageCount}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setPageIndex(0)} disabled={pageIndex === 0}>First</Button>
-                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0}>Prev</Button>
-                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}>Next</Button>
-                        <Button size="sm" variant="outline" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1}>Last</Button>
-                    </div>
-                </div>
+                <DataTableToolbar
+                    pageSize={pagination.pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    searchValue={globalFilter}
+                    onSearchChange={handleSearchChange}
+                />
+                <DataTableShell table={table} emptyColSpan={columns.length} emptyMessage="No items found." />
+                <DataTablePagination
+                    showingFrom={showingFrom}
+                    showingTo={showingTo}
+                    totalRows={totalRows}
+                    itemLabel="items"
+                    onFirst={() => table.setPageIndex(0)}
+                    onPrev={() => table.previousPage()}
+                    onNext={() => table.nextPage()}
+                    onLast={() => table.setPageIndex(totalPages - 1)}
+                    canPrevious={table.getCanPreviousPage()}
+                    canNext={table.getCanNextPage()}
+                />
                 {/* Modal for create/edit item */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
                     <DialogContent className="max-w-md w-full dark:bg-gray-900 dark:text-white">
@@ -296,6 +240,18 @@ const Inventory: React.FC = () => {
                                 className="border rounded p-2 dark:bg-gray-800 dark:text-white"
                                 required
                             />
+                            <select
+                                name="unit"
+                                value={form.unit}
+                                onChange={handleFormChange}
+                                className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                title="Unit"
+                                required
+                            >
+                                <option value="PCS">PCS (Pieces)</option>
+                                <option value="BOT">BOT (Bottle)</option>
+                                <option value="REAM">REAM</option>
+                            </select>
                             <input
                                 type="number"
                                 name="quantity"

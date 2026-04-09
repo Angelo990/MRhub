@@ -54,9 +54,11 @@ class RequestController extends Controller
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:items,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.particular' => 'required|string',
-            'items.*.unit' => 'required|string',
         ]);
+
+        $inventoryItems = Item::whereIn('id', collect($data['items'])->pluck('item_id'))
+            ->get()
+            ->keyBy('id');
 
         $requestModel = Request::create([
             'date' => $data['date'],
@@ -70,12 +72,18 @@ class RequestController extends Controller
         ]);
 
         foreach ($data['items'] as $item) {
+            $inventoryItem = $inventoryItems->get((int) $item['item_id']);
+
+            if (! $inventoryItem) {
+                abort(422, 'Selected inventory item is invalid.');
+            }
+
             RequestItem::create([
                 'request_id' => $requestModel->id,
                 'item_id' => $item['item_id'],
                 'quantity' => $item['quantity'],
-                'particular' => $item['particular'],
-                'unit' => $item['unit'],
+                'particular' => $inventoryItem->name,
+                'unit' => $inventoryItem->unit,
             ]);
         }
 
