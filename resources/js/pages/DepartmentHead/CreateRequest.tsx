@@ -96,11 +96,11 @@ export default function CreateRequest() {
 
     return (
         <AppLayout>
-            <div className="max-w-3xl mx-auto p-6">
-                <h1 className="text-2xl font-bold mb-6">Create Item Request</h1>
-                {error && <div className="text-red-500 mb-2">{error}</div>}
+            <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
+                <h1 className="mb-6 text-2xl font-bold">Create Item Request</h1>
+                {error && <div className="mb-2 text-red-500">{error}</div>}
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label className="font-semibold" htmlFor="date">Date</label>
                             <input type="date" id="date" name="date" value={form.date} className="border rounded p-2 w-full" disabled title="Request Date" placeholder="Request Date" />
@@ -114,7 +114,7 @@ export default function CreateRequest() {
                         <label className="font-semibold" htmlFor="purpose">Purpose</label>
                         <input type="text" id="purpose" name="purpose" placeholder="Purpose" value={form.purpose} onChange={handleFormChange} className="border rounded p-2 w-full" required />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label className="font-semibold" htmlFor="requested_by">Requested by</label>
                             <input type="text" id="requested_by" name="requested_by" value={requestedBy} className="border rounded p-2 w-full" disabled title="Requested by" placeholder="Requested by" />
@@ -124,7 +124,7 @@ export default function CreateRequest() {
                             <input type="text" id="reviewed_by" name="reviewed_by" value={form.reviewed_by} className="border rounded p-2 w-full" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label className="font-semibold" htmlFor="approved_by">Approved by (VP Finance)</label>
                             <input type="text" id="approved_by" name="approved_by" value={form.approved_by} className="border rounded p-2 w-full" disabled title="Approved by" placeholder="To be filled by VP Finance" />
@@ -138,22 +138,34 @@ export default function CreateRequest() {
                         <label className="font-semibold mb-2">Request Items</label>
                         <div className="grid gap-2">
                             {form.items.map((item, idx) => (
-                                <div key={idx} className="grid grid-cols-5 gap-2 items-center">
-                                    <select name="item_id" value={item.item_id} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Select Item">
-                                        <option value="">Select Item</option>
-                                        {itemsList.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                                    </select>
-                                    <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
-                                    <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
-                                    <input type="text" name="unit" placeholder="Unit" value={item.unit} className="border rounded p-2 w-full" disabled title="Unit" />
-                                    <Button type="button" variant="destructive" onClick={() => removeItem(idx)} className="w-full">Remove</Button>
+                                <div key={idx} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] xl:items-center">
+                                    <div className="space-y-1 xl:space-y-0">
+                                        <label className="text-sm font-medium xl:sr-only">Item</label>
+                                        <select name="item_id" value={item.item_id} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Select Item">
+                                            <option value="">Select Item</option>
+                                            {itemsList.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1 xl:space-y-0">
+                                        <label className="text-sm font-medium xl:sr-only">Quantity</label>
+                                        <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
+                                    </div>
+                                    <div className="space-y-1 xl:space-y-0">
+                                        <label className="text-sm font-medium xl:sr-only">Particular</label>
+                                        <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
+                                    </div>
+                                    <div className="space-y-1 xl:space-y-0">
+                                        <label className="text-sm font-medium xl:sr-only">Unit</label>
+                                        <input type="text" name="unit" placeholder="Unit" value={item.unit} className="border rounded p-2 w-full" disabled title="Unit" />
+                                    </div>
+                                    <Button type="button" variant="destructive" onClick={() => removeItem(idx)} className="w-full xl:w-auto">Remove</Button>
                                 </div>
                             ))}
                         </div>
                         <Button type="button" variant="outline" onClick={addItem} className="mt-2">Add Item</Button>
                     </div>
-                    <div className="flex justify-end gap-2">
-                        <Button type="submit" variant="default" disabled={loading}>Submit Request</Button>
+                    <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                        <Button type="submit" variant="default" disabled={loading} className="w-full sm:w-auto">Submit Request</Button>
                     </div>
                 </form>
             </div>

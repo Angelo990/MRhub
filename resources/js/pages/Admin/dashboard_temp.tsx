@@ -15,7 +15,7 @@ export default function Dashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <div className="flex h-full min-w-0 flex-1 flex-col gap-4 overflow-x-hidden rounded-xl p-3 sm:p-4">
                 <h1 className="text-2xl font-bold">Admin Dashboard</h1>
             </div>
         </AppLayout>

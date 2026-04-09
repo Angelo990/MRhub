@@ -477,7 +477,7 @@ const Inventory: React.FC = () => {
                     </DialogContent>
                 </Dialog>
                 <Dialog open={historyItemId !== null} onOpenChange={(open) => !open && setHistoryItemId(null)}>
-                    <DialogContent className="w-[95vw] max-w-6xl overflow-hidden dark:bg-gray-900 dark:text-white">
+                    <DialogContent className="w-[95vw] max-w-6xl overflow-hidden p-4 sm:p-6 dark:bg-gray-900 dark:text-white">
                         <DialogHeader>
                             <DialogTitle>
                                 Stock Card{selectedHistoryItem ? `: ${selectedHistoryItem.name}` : ''}
@@ -499,7 +499,7 @@ const Inventory: React.FC = () => {
                                         <div className="font-semibold">{selectedHistoryItem.quantity}</div>
                                     </div>
                                 </div>
-                                <div className="flex justify-end gap-2">
+                                <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
                                     <Button type="button" variant="outline" onClick={() => handlePrintStockCard(selectedHistoryItem)}>
                                         Print
                                     </Button>

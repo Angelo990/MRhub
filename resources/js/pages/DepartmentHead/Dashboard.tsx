@@ -443,7 +443,7 @@ export default function Dashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${departmentName} Dashboard`} />
-            <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
+            <div className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-x-hidden rounded-xl p-3 sm:p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="space-y-1">
                         <h1 className="text-2xl font-bold">{departmentName} Dashboard</h1>
@@ -451,7 +451,7 @@ export default function Dashboard() {
                             Department-level view of request progress, demand, and overall request value.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1 max-sm:[&>a]:flex-1">
                         <Button type="button" variant="outline" onClick={handlePrintDashboard}>
                             Print
                         </Button>
@@ -486,22 +486,22 @@ export default function Dashboard() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3 md:flex-row md:items-end">
-                        <div className="flex flex-wrap gap-2 md:w-full">
+                        <div className="flex flex-wrap gap-2 md:w-full max-sm:[&>button]:flex-1">
                             {DASHBOARD_DATE_PRESETS.map((preset) => (
                                 <Button key={preset.id} type="button" variant={activePreset === preset.id ? 'default' : 'outline'} onClick={() => handlePresetSelect(preset.id)}>
                                     {preset.label}
                                 </Button>
                             ))}
                         </div>
-                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                        <label className="flex w-full flex-col gap-2 text-sm md:flex-1">
                             <span>From</span>
                             <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
                         </label>
-                        <label className="flex flex-1 flex-col gap-2 text-sm">
+                        <label className="flex w-full flex-col gap-2 text-sm md:flex-1">
                             <span>To</span>
                             <input type="date" value={filterTo} onChange={(event) => setFilterTo(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <Button type="button" onClick={handleApplyFilters}>Apply</Button>
                             <Button type="button" variant="outline" onClick={handleResetFilters}>Reset</Button>
                         </div>
@@ -536,7 +536,7 @@ export default function Dashboard() {
                         <Card key={card.label} className="border-border/70 bg-card/80 backdrop-blur">
                             <CardHeader className="gap-2">
                                 <CardDescription>{card.label}</CardDescription>
-                                <CardTitle className="text-3xl">{card.value}</CardTitle>
+                                <CardTitle className="break-words text-2xl sm:text-3xl">{card.value}</CardTitle>
                             </CardHeader>
                             <CardContent className="pt-0 text-sm text-muted-foreground">
                                 {card.description}
