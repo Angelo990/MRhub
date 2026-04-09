@@ -36,9 +36,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('DepartmentHead/Dashboard');
     })->middleware('role:department-head')->name('dashboard.department-head');
 
-    Route::get('dashboard/admin', function () {
-        return Inertia::render('Admin/Dashboard');
-    })->middleware('role:admin')->name('dashboard.admin');
+    Route::get('dashboard/admin', \App\Http\Controllers\Admin\DashboardController::class)
+        ->middleware('role:admin')
+        ->name('dashboard.admin');
 
     /* -- Admin Routes -- */
     Route::group(['middleware' => ['role:admin']], function () {
