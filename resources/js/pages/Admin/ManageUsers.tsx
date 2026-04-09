@@ -308,7 +308,7 @@ const ManageUser: React.FC = () => {
 			id: 'actions',
 			header: () => <span>Actions</span>,
 			cell: ({ row }) => (
-				<div className="flex gap-2">
+				<div className="flex flex-wrap gap-2 max-sm:min-w-[180px]">
 					<Button size="sm" variant="outline" onClick={() => openModal(row.original)}>Edit</Button>
 					<Button size="sm" variant="destructive" onClick={() => handleDelete(row.original.id)}>Delete</Button>
 				</div>
@@ -340,9 +340,9 @@ const ManageUser: React.FC = () => {
 	return (
 		<AppLayout breadcrumbs={breadcrumbs}>
 			<div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
-				<div className="flex items-center justify-between mb-2">
+				<div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<h1 className="text-2xl font-bold">User Management</h1>
-					<div className="flex gap-2">
+					<div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
 						<Button type="button" variant="outline" onClick={handlePrintReport}>Print</Button>
 						<Button type="button" variant="secondary" onClick={handleExportExcel}>Excel</Button>
 						<Button type="button" variant="secondary" onClick={handleExportCsv}>CSV</Button>

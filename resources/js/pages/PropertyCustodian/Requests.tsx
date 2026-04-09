@@ -309,7 +309,7 @@ export default function Requests() {
             createStatusColumn<Request>(),
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 min-[391px]:min-w-[200px]">
                     <Button size="sm" variant="default" onClick={() => handleEndorse(req.id)} disabled={req.status !== 'Pending Endorsement' || processingId === req.id}>
                         Endorse
                     </Button>

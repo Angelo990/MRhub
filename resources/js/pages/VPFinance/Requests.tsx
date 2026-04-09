@@ -221,7 +221,7 @@ export default function Requests() {
             createStatusColumn<Request>(),
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 min-[391px]:min-w-[180px]">
                     <Button size="sm" variant="default" onClick={() => handleApprove(req.id)} disabled={processingId === req.id}>Approve</Button>
                     <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={processingId === req.id}>Reject</Button>
                 </div>
@@ -247,9 +247,9 @@ export default function Requests() {
         return (
             <AppLayout>
                 <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-2xl font-bold">Requests for Approval</h1>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
                             <Button type="button" variant="outline" onClick={handlePrintReport}>Print</Button>
                             <Button type="button" variant="secondary" onClick={handleExportExcel}>Excel</Button>
                             <Button type="button" variant="secondary" onClick={handleExportCsv}>CSV</Button>

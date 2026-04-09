@@ -250,7 +250,7 @@ export default function MyRequest() {
             createStatusColumn<Request>(),
             createItemsColumn<Request>(),
             createActionsColumn<Request>((req) => (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 min-[391px]:min-w-[220px]">
                     {(req.status === 'Ready for Pickup' || req.status === 'Released') && (
                         <>
                             <Button size="sm" variant="default" onClick={() => handleMarkReceived(req.id)} disabled={loading}>
@@ -289,9 +289,9 @@ export default function MyRequest() {
         return (
             <AppLayout>
                 <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-2xl font-bold">My Requests</h1>
-                        <Button variant="default" onClick={() => router.visit('/department-head/requests/create')}>
+                        <Button variant="default" onClick={() => router.visit('/department-head/requests/create')} className="w-full sm:w-auto">
                             Create Request
                         </Button>
                     </div>
