@@ -43,6 +43,7 @@ export default function Dashboard() {
     const filterStorageKey = 'dashboard:admin:filters';
     const [editMode, setEditMode] = useState(false);
     const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+    const [chartsReady, setChartsReady] = useState(false);
     const [chartOrder, setChartOrder] = useState(chartIds);
     const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
     const [filterTo, setFilterTo] = useState(filters.to ?? '');
@@ -170,6 +171,11 @@ export default function Dashboard() {
     }, [filters.from, filters.to]);
 
     useEffect(() => {
+        const timer = window.setTimeout(() => setChartsReady(true), 120);
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
         const raw = window.localStorage.getItem(filterStorageKey);
 
         if (!raw || filters.from || filters.to) {
@@ -248,7 +254,7 @@ export default function Dashboard() {
             className: '',
             content: (
                 <div className="h-[340px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <BarChart data={usersByRole} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                             <XAxis dataKey="name" tickLine={false} axisLine={false} />
@@ -271,7 +277,7 @@ export default function Dashboard() {
             className: '',
             content: (
                 <div className="h-[340px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <BarChart data={requestsByStatus} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                             <XAxis dataKey="name" tickLine={false} axisLine={false} />
@@ -291,7 +297,7 @@ export default function Dashboard() {
             content: (
                 <>
                     <div className="h-[360px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                             <PieChart>
                                 <Pie
                                     data={usersByDepartment}
@@ -495,7 +501,7 @@ export default function Dashboard() {
                     {orderedVisibleCards.map((card) => (
                         <div
                             key={card.id}
-                            className={card.className}
+                            className={`min-w-0 ${card.className}`}
                             draggable={editMode}
                             onDragStart={() => setDraggedCardId(card.id)}
                             onDragOver={(event) => {
@@ -511,7 +517,7 @@ export default function Dashboard() {
                                     <CardTitle>{card.title}</CardTitle>
                                     <CardDescription>{card.description}</CardDescription>
                                 </CardHeader>
-                                <CardContent>{card.content}</CardContent>
+                                <CardContent className="min-w-0">{chartsReady ? card.content : <div className="h-40 w-full" />}</CardContent>
                             </Card>
                         </div>
                     ))}
@@ -520,3 +526,4 @@ export default function Dashboard() {
         </AppLayout>
     );
 }
+

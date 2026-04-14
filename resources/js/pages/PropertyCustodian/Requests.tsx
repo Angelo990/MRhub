@@ -374,12 +374,16 @@ export default function Requests() {
                     const isReleasedReceipt = req?.status === 'Released' && req.delivery_receipt;
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
-                            <DialogContent>
-                                <DialogHeader>
+                            <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-4xl flex-col overflow-hidden p-0">
+                                <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
                                     <DialogTitle>{isReleasedReceipt ? 'Delivery Receipt' : 'Release Items'}</DialogTitle>
                                 </DialogHeader>
+                                <div
+                                    data-modal-body
+                                    className={`min-h-0 flex-1 px-4 py-4 sm:px-6 ${isReleasedReceipt ? 'overflow-y-auto' : 'flex flex-col overflow-hidden'}`}
+                                >
                                 {isReleasedReceipt && req.delivery_receipt ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
                                             <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
                                                 Print
@@ -400,25 +404,25 @@ export default function Requests() {
                                         <div><strong>Received by:</strong> {req.delivery_receipt.received_by}</div>
                                         <div><strong>Status:</strong> {req.status}</div>
                                         <div><strong>Total:</strong> {formatCurrency(req.delivery_receipt.total)}</div>
-                                        <div className="overflow-x-auto rounded border">
-                                            <table className="min-w-[640px] text-sm">
-                                                <thead>
+                                        <div data-receipt-table-wrapper className="overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-visible">
+                                            <table className="w-full min-w-[640px] text-sm md:min-w-0">
+                                                <thead className="bg-muted/30">
                                                     <tr>
-                                                        <th className="px-2 py-1">Item</th>
-                                                        <th className="px-2 py-1">Qty</th>
-                                                        <th className="px-2 py-1">Unit</th>
-                                                        <th className="px-2 py-1">Unit Price</th>
-                                                        <th className="px-2 py-1">Total</th>
+                                                        <th className="px-3 py-2 text-left">Item</th>
+                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                        <th className="px-3 py-2 text-left">Unit</th>
+                                                        <th className="px-3 py-2 text-right">Unit Price</th>
+                                                        <th className="px-3 py-2 text-right">Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {req.delivery_receipt.items?.map((item) => (
                                                         <tr key={item.id}>
-                                                            <td className="px-2 py-1">{item.particular}</td>
-                                                            <td className="px-2 py-1">{item.quantity_delivered}</td>
-                                                            <td className="px-2 py-1">{item.unit}</td>
-                                                            <td className="px-2 py-1">{formatCurrency(item.unit_cost)}</td>
-                                                            <td className="px-2 py-1">{formatCurrency(item.total)}</td>
+                                                            <td className="px-3 py-2">{item.particular}</td>
+                                                            <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
+                                                            <td className="px-3 py-2">{item.unit}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -428,34 +432,34 @@ export default function Requests() {
                                 ) : (
                                     <>
                                         {error && <div className="text-red-500 mb-2">{error}</div>}
-                                        <form className="grid gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
+                                        <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
                                             <label htmlFor="delivery_date" className="font-semibold">Delivery Date</label>
                                             <input type="date" id="delivery_date" name="delivery_date" value={receiptForm.delivery_date} disabled className="border rounded p-2" title="Delivery Date" placeholder="Delivery Date" />
                                             <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="border rounded p-2" />
                                             <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="border rounded p-2" />
                                             <label htmlFor="received_by" className="font-semibold">Received by</label>
                                             <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="border rounded p-2" title="Received by" placeholder="Received by" />
-                                            <div className="border rounded p-2 bg-gray-50">
+                                            <div className="min-h-0 flex flex-1 flex-col rounded border border-border/70 bg-muted/30 p-2">
                                                 <div className="font-semibold mb-2">Items</div>
-                                                <div className="overflow-x-auto rounded border bg-white dark:bg-gray-900">
-                                                    <table className="min-w-[640px] text-sm">
-                                                        <thead>
+                                                <div data-receipt-table-wrapper className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-hidden">
+                                                    <table className="w-full min-w-[640px] text-sm md:min-w-0">
+                                                        <thead className="bg-muted/30">
                                                             <tr>
-                                                                <th className="px-2 py-1">Item</th>
-                                                                <th className="px-2 py-1">Qty</th>
-                                                                <th className="px-2 py-1">Unit</th>
-                                                                <th className="px-2 py-1">Unit Price</th>
-                                                                <th className="px-2 py-1">Total</th>
+                                                                <th className="px-3 py-2 text-left">Item</th>
+                                                                <th className="px-3 py-2 text-right">Qty</th>
+                                                                <th className="px-3 py-2 text-left">Unit</th>
+                                                                <th className="px-3 py-2 text-right">Unit Price</th>
+                                                                <th className="px-3 py-2 text-right">Total</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {req?.items.map(item => (
                                                                 <tr key={item.id}>
-                                                                    <td className="px-2 py-1">{item.particular}</td>
-                                                                    <td className="px-2 py-1">{item.quantity}</td>
-                                                                    <td className="px-2 py-1">{item.unit}</td>
-                                                                    <td className="px-2 py-1">{getUnitPrice(item.item_id)}</td>
-                                                                    <td className="px-2 py-1">{item.quantity * getUnitPrice(item.item_id)}</td>
+                                                                    <td className="px-3 py-2">{item.particular}</td>
+                                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                                    <td className="px-3 py-2">{item.unit}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(getUnitPrice(item.item_id))}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.quantity * getUnitPrice(item.item_id))}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
@@ -464,13 +468,14 @@ export default function Requests() {
                                             </div>
                                             <label htmlFor="total" className="font-semibold">Total</label>
                                             <input type="number" id="total" name="total" value={receiptForm.total} disabled placeholder="Total" className="border rounded p-2" title="Total" />
-                                            <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                                            <div className="shrink-0 flex flex-col justify-end gap-2 border-t border-border/70 bg-background pt-3 sm:flex-row">
                                                 <Button type="submit" variant="default" disabled={processingId === openReceipt} className="w-full sm:w-auto">Release</Button>
                                                 <Button type="button" variant="outline" onClick={() => setOpenReceipt(null)} className="w-full sm:w-auto">Cancel</Button>
                                             </div>
                                         </form>
                                     </>
                                 )}
+                                </div>
                             </DialogContent>
                         </Dialog>
                     );

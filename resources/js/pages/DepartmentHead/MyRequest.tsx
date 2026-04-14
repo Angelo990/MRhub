@@ -321,12 +321,13 @@ export default function MyRequest() {
                     const receipt = req?.delivery_receipt;
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
-                            <DialogContent>
-                                <DialogHeader>
+                            <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-4xl flex-col overflow-hidden p-0">
+                                <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
                                     <DialogTitle>Delivery Receipt</DialogTitle>
                                 </DialogHeader>
+                                <div data-modal-body className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                                 {receipt ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
                                             <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
                                                 Print
@@ -348,25 +349,25 @@ export default function MyRequest() {
                                         <div><strong>Status:</strong> {getDisplayStatus(req.status)}</div>
                                         <div><strong>Total:</strong> {formatCurrency(receipt.total)}</div>
                                         <div className="font-semibold mt-2">Items</div>
-                                        <div className="overflow-x-auto rounded border">
-                                            <table className="min-w-[640px] text-sm">
-                                                <thead>
+                                        <div data-receipt-table-wrapper className="max-h-[38vh] overflow-y-auto overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-hidden">
+                                            <table className="w-full min-w-[640px] text-sm md:min-w-0">
+                                                <thead className="bg-muted/30">
                                                     <tr>
-                                                        <th className="px-2 py-1">Item</th>
-                                                        <th className="px-2 py-1">Qty</th>
-                                                        <th className="px-2 py-1">Unit</th>
-                                                        <th className="px-2 py-1">Unit Price</th>
-                                                        <th className="px-2 py-1">Total</th>
+                                                        <th className="px-3 py-2 text-left">Item</th>
+                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                        <th className="px-3 py-2 text-left">Unit</th>
+                                                        <th className="px-3 py-2 text-right">Unit Price</th>
+                                                        <th className="px-3 py-2 text-right">Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {receipt.items?.map((item: ReceiptItem) => (
                                                         <tr key={item.id}>
-                                                            <td className="px-2 py-1">{item.particular}</td>
-                                                            <td className="px-2 py-1">{item.quantity_delivered}</td>
-                                                            <td className="px-2 py-1">{item.unit}</td>
-                                                            <td className="px-2 py-1">{item.unit_cost}</td>
-                                                            <td className="px-2 py-1">{item.total}</td>
+                                                            <td className="px-3 py-2">{item.particular}</td>
+                                                            <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
+                                                            <td className="px-3 py-2">{item.unit}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -376,6 +377,7 @@ export default function MyRequest() {
                                 ) : (
                                     <div>No receipt found.</div>
                                 )}
+                                </div>
                             </DialogContent>
                         </Dialog>
                     );
