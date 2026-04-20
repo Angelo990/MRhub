@@ -7,12 +7,15 @@ interface Department {
     id: number;
     name: string;
 }
+
 interface Item {
     id: number;
     name: string;
     unit: string;
-    unit_price: string;
+    quantity: number;
+    unit_price: number;
 }
+
 interface PageProps {
     departments: Department[];
     items: Item[];
@@ -21,17 +24,25 @@ interface PageProps {
 interface AuthUser {
     name?: string;
     department_id?: number | string;
-    department?: {
-        name?: string;
-    };
+    department?: { name?: string };
 }
 
 interface CreateRequestPageProps extends PageProps {
-    auth?: {
-        user?: AuthUser;
-    };
+    auth?: { user?: AuthUser };
     [key: string]: unknown;
 }
+
+interface FormItem {
+    item_id: string;
+    quantity: string;
+    particular: string;
+    unit: string;
+    is_custom: boolean;
+    unit_price_at_request: string;
+}
+
+const formatCurrency = (v: number) =>
+    `₱ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function CreateRequest() {
     const { departments, items, auth } = usePage<CreateRequestPageProps>().props;
@@ -39,6 +50,7 @@ export default function CreateRequest() {
     const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
     const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
     const requestedBy = auth?.user?.name || '';
+
     const [form, setForm] = useState({
         date: today,
         department_id: departmentId,
@@ -47,40 +59,66 @@ export default function CreateRequest() {
         reviewed_by: '',
         approved_by: '',
         noted_by: 'President MDC',
-        items: [{ item_id: '', quantity: '', particular: '', unit: '' }],
+        items: [{ item_id: '', quantity: '', particular: '', unit: '', is_custom: false, unit_price_at_request: '' }] as FormItem[],
     });
+    const [itemSearches, setItemSearches] = useState<string[]>(['']);
+    const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, idx?: number) => {
-        const { name, value } = e.target;
-        if (typeof idx === 'number') {
-            setForm((prev) => {
-                const items = [...prev.items];
-                if (name === 'item_id') {
-                    const selectedItem = itemsList.find((i) => i.id === Number(value));
-                    items[idx] = {
-                        ...items[idx],
-                        item_id: value,
-                        particular: selectedItem ? selectedItem.name : '',
-                        unit: selectedItem ? selectedItem.unit : '',
-                    };
-                } else {
-                    items[idx] = { ...items[idx], [name]: value };
-                }
-                return { ...prev, items };
-            });
-        } else {
-            setForm((prev) => ({ ...prev, [name]: value }));
-        }
+    const itemsList: Item[] = items || [];
+
+    const getInventoryItem = (itemId: string) => itemsList.find((i) => i.id === Number(itemId));
+
+    const lineValue = (fi: FormItem): number => {
+        const qty = parseInt(fi.quantity) || 0;
+        if (fi.is_custom) return (parseFloat(fi.unit_price_at_request) || 0) * qty;
+        const inv = getInventoryItem(fi.item_id);
+        return inv ? inv.unit_price * qty : 0;
     };
 
-    const itemsList = items || [];
-    const addItem = () => {
-        setForm((prev) => ({ ...prev, items: [...prev.items, { item_id: '', quantity: '', particular: '', unit: '' }] }));
+    const totalValue = form.items.reduce((sum, fi) => sum + lineValue(fi), 0);
+
+    const handlePurposeChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+        setForm((prev) => ({ ...prev, purpose: e.target.value }));
+
+    const selectInventoryItem = (idx: number, item: Item) => {
+        setForm((prev) => {
+            const updated = [...prev.items];
+            updated[idx] = { ...updated[idx], item_id: String(item.id), particular: item.name, unit: item.unit, unit_price_at_request: String(item.unit_price) };
+            return { ...prev, items: updated };
+        });
+        setItemSearches((prev) => { const s = [...prev]; s[idx] = item.name; return s; });
+        setDropdownOpen(null);
+    };
+
+    const handleSearchChange = (idx: number, value: string) => {
+        setItemSearches((prev) => { const s = [...prev]; s[idx] = value; return s; });
+        setForm((prev) => {
+            const updated = [...prev.items];
+            updated[idx] = { ...updated[idx], item_id: '', particular: '', unit: '', unit_price_at_request: '' };
+            return { ...prev, items: updated };
+        });
+        setDropdownOpen(idx);
+    };
+
+    const handleQuantityChange = (idx: number, value: string) =>
+        setForm((prev) => { const updated = [...prev.items]; updated[idx] = { ...updated[idx], quantity: value }; return { ...prev, items: updated }; });
+
+    const handleCustomField = (idx: number, field: 'particular' | 'unit' | 'unit_price_at_request', value: string) =>
+        setForm((prev) => { const updated = [...prev.items]; updated[idx] = { ...updated[idx], [field]: value }; return { ...prev, items: updated }; });
+
+    const addInventoryItem = () => {
+        setForm((prev) => ({ ...prev, items: [...prev.items, { item_id: '', quantity: '', particular: '', unit: '', is_custom: false, unit_price_at_request: '' }] }));
+        setItemSearches((prev) => [...prev, '']);
+    };
+    const addCustomItem = () => {
+        setForm((prev) => ({ ...prev, items: [...prev.items, { item_id: '', quantity: '', particular: '', unit: '', is_custom: true, unit_price_at_request: '' }] }));
+        setItemSearches((prev) => [...prev, '']);
     };
     const removeItem = (idx: number) => {
         setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
+        setItemSearches((prev) => prev.filter((_, i) => i !== idx));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -88,7 +126,7 @@ export default function CreateRequest() {
         setLoading(true);
         setError(null);
         router.post('/department-head/requests', form, {
-            onError: (errors) => setError(errors.message || 'Failed to submit request.'),
+            onError: (errors) => setError(Object.values(errors).flat().join(' ') || 'Failed to submit request.'),
             onSuccess: () => router.visit('/department-head/requests'),
             onFinish: () => setLoading(false),
         });
@@ -98,74 +136,202 @@ export default function CreateRequest() {
         <AppLayout>
             <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
                 <h1 className="mb-6 text-2xl font-bold">Create Item Request</h1>
-                {error && <div className="mb-2 text-red-500">{error}</div>}
+                {error && <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label className="font-semibold" htmlFor="date">Date</label>
-                            <input type="date" id="date" name="date" value={form.date} className="border rounded p-2 w-full" disabled title="Request Date" placeholder="Request Date" />
+                            <input type="date" id="date" value={form.date} className="mt-1 w-full rounded border p-2" disabled title="Request Date" placeholder="Request Date" />
                         </div>
                         <div>
                             <label className="font-semibold" htmlFor="department">Department</label>
-                            <input type="text" id="department" name="department" value={departmentName} className="border rounded p-2 w-full" disabled title="Department" placeholder="Department" />
+                            <input type="text" id="department" value={departmentName} className="mt-1 w-full rounded border p-2" disabled title="Department" placeholder="Department" />
                         </div>
                     </div>
+
                     <div>
                         <label className="font-semibold" htmlFor="purpose">Purpose</label>
-                        <input type="text" id="purpose" name="purpose" placeholder="Purpose" value={form.purpose} onChange={handleFormChange} className="border rounded p-2 w-full" required />
+                        <input type="text" id="purpose" placeholder="Purpose" value={form.purpose} onChange={handlePurposeChange} className="mt-1 w-full rounded border p-2" required />
                     </div>
+
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <label className="font-semibold" htmlFor="requested_by">Requested by</label>
-                            <input type="text" id="requested_by" name="requested_by" value={requestedBy} className="border rounded p-2 w-full" disabled title="Requested by" placeholder="Requested by" />
+                            <label className="font-semibold">Requested by</label>
+                            <input type="text" value={requestedBy} className="mt-1 w-full rounded border p-2" disabled title="Requested by" placeholder="Requested by" />
                         </div>
                         <div>
-                            <label className="font-semibold" htmlFor="reviewed_by">Reviewed by (Property Custodian)</label>
-                            <input type="text" id="reviewed_by" name="reviewed_by" value={form.reviewed_by} className="border rounded p-2 w-full" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
+                            <label className="font-semibold">Reviewed by (Property Custodian)</label>
+                            <input type="text" value={form.reviewed_by} className="mt-1 w-full rounded border p-2" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
                         </div>
                     </div>
+
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <label className="font-semibold" htmlFor="approved_by">Approved by (VP Finance)</label>
-                            <input type="text" id="approved_by" name="approved_by" value={form.approved_by} className="border rounded p-2 w-full" disabled title="Approved by" placeholder="To be filled by VP Finance" />
+                            <label className="font-semibold">Approved by (VP Finance)</label>
+                            <input type="text" value={form.approved_by} className="mt-1 w-full rounded border p-2" disabled title="Approved by" placeholder="To be filled by VP Finance" />
                         </div>
                         <div>
-                            <label className="font-semibold" htmlFor="noted_by">Noted by</label>
-                            <input type="text" id="noted_by" name="noted_by" value={form.noted_by} className="border rounded p-2 w-full" disabled title="Noted by" placeholder="Noted by" />
+                            <label className="font-semibold">Noted by</label>
+                            <input type="text" value={form.noted_by} className="mt-1 w-full rounded border p-2" disabled title="Noted by" placeholder="Noted by" />
                         </div>
                     </div>
+
+                    {/* Items section */}
                     <div>
-                        <label className="font-semibold mb-2">Request Items</label>
-                        <div className="grid gap-2">
-                            {form.items.map((item, idx) => (
-                                <div key={idx} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] xl:items-center">
-                                    <div className="space-y-1 xl:space-y-0">
-                                        <label className="text-sm font-medium xl:sr-only">Item</label>
-                                        <select name="item_id" value={item.item_id} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" required title="Select Item">
-                                            <option value="">Select Item</option>
-                                            {itemsList.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1 xl:space-y-0">
-                                        <label className="text-sm font-medium xl:sr-only">Quantity</label>
-                                        <input type="number" name="quantity" placeholder="Quantity" value={item.quantity} onChange={(e) => handleFormChange(e, idx)} className="border rounded p-2 w-full" min={1} required title="Quantity" />
-                                    </div>
-                                    <div className="space-y-1 xl:space-y-0">
-                                        <label className="text-sm font-medium xl:sr-only">Particular</label>
-                                        <input type="text" name="particular" placeholder="Particular" value={item.particular} className="border rounded p-2 w-full" disabled title="Particular" />
-                                    </div>
-                                    <div className="space-y-1 xl:space-y-0">
-                                        <label className="text-sm font-medium xl:sr-only">Unit</label>
-                                        <input type="text" name="unit" placeholder="Unit" value={item.unit} className="border rounded p-2 w-full" disabled title="Unit" />
-                                    </div>
-                                    <Button type="button" variant="destructive" onClick={() => removeItem(idx)} className="w-full xl:w-auto">Remove</Button>
-                                </div>
-                            ))}
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="font-semibold">Request Items</span>
+                            <span className="text-sm text-muted-foreground">
+                                Total: <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
+                            </span>
                         </div>
-                        <Button type="button" variant="outline" onClick={addItem} className="mt-2">Add Item</Button>
+
+                        <div className="grid gap-3">
+                            {form.items.map((fi, idx) => {
+                                const inv = fi.is_custom ? null : getInventoryItem(fi.item_id);
+                                const isOutOfStock = !fi.is_custom && fi.item_id !== '' && inv !== undefined && inv.quantity <= 0;
+                                const qty = parseInt(fi.quantity) || 0;
+                                const estValue = lineValue(fi);
+                                const filteredItems = itemsList.filter((i) =>
+                                    i.name.toLowerCase().includes((itemSearches[idx] || '').toLowerCase()),
+                                );
+
+                                return (
+                                    <div key={idx} className={`rounded-lg border p-3 ${isOutOfStock ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-border bg-card'}`}>
+                                        {/* Row header */}
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${fi.is_custom ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'}`}>
+                                                {fi.is_custom ? 'Non-Inventory Item' : 'Inventory Item'}
+                                            </span>
+                                            {estValue > 0 && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    Est. value: <strong>{formatCurrency(estValue)}</strong>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            {/* Item picker / name */}
+                                            <div className="sm:col-span-2">
+                                                {fi.is_custom ? (
+                                                    <div>
+                                                        <label className="mb-1 block text-sm font-medium">Item Name</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Describe item (e.g. Custom Printer Ink)"
+                                                            value={fi.particular}
+                                                            onChange={(e) => handleCustomField(idx, 'particular', e.target.value)}
+                                                            className="w-full rounded border p-2"
+                                                            required
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <label className="mb-1 block text-sm font-medium">Select Item</label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search inventory item..."
+                                                                value={itemSearches[idx] || ''}
+                                                                onChange={(e) => handleSearchChange(idx, e.target.value)}
+                                                                onFocus={() => setDropdownOpen(idx)}
+                                                                onBlur={() => setTimeout(() => setDropdownOpen(null), 150)}
+                                                                className="w-full rounded border p-2"
+                                                                autoComplete="off"
+                                                            />
+                                                            {!fi.is_custom && <input type="hidden" value={fi.item_id} required />}
+                                                            {dropdownOpen === idx && filteredItems.length > 0 && (
+                                                                <ul className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded border bg-background shadow-lg dark:bg-gray-800">
+                                                                    {filteredItems.map((i) => (
+                                                                        <li
+                                                                            key={i.id}
+                                                                            onMouseDown={() => selectInventoryItem(idx, i)}
+                                                                            className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-muted"
+                                                                        >
+                                                                            <span className="font-medium">{i.name}</span>
+                                                                            <span className={`ml-2 shrink-0 text-xs ${i.quantity > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                                                {i.quantity > 0 ? `Available: ${i.quantity} ${i.unit}` : 'Out of stock'}
+                                                                            </span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                        {fi.item_id && inv && (
+                                                            <div className={`mt-1 text-xs ${inv.quantity > 0 ? 'text-emerald-600' : 'font-semibold text-red-500'}`}>
+                                                                {inv.quantity > 0
+                                                                    ? `✓ Available: ${inv.quantity} ${inv.unit} · Unit price: ${formatCurrency(inv.unit_price)}`
+                                                                    : '⚠ Out of stock — item unavailable'}
+                                                            </div>
+                                                        )}
+                                                        {isOutOfStock && (
+                                                            <div className="mt-1 text-xs font-semibold text-red-600">
+                                                                Warning: This item is currently out of stock. The request will still be submitted but may be delayed.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Quantity */}
+                                            <div>
+                                                <label className="mb-1 block text-sm font-medium">Quantity</label>
+                                                <input type="number" placeholder="Quantity" value={fi.quantity} onChange={(e) => handleQuantityChange(idx, e.target.value)} className="w-full rounded border p-2" min={1} required />
+                                            </div>
+
+                                            {/* Unit */}
+                                            <div>
+                                                <label className="mb-1 block text-sm font-medium">Unit</label>
+                                                {fi.is_custom ? (
+                                                    <input type="text" placeholder="e.g. PCS, BOX" value={fi.unit} onChange={(e) => handleCustomField(idx, 'unit', e.target.value)} className="w-full rounded border p-2" required />
+                                                ) : (
+                                                    <input type="text" value={fi.unit} disabled className="w-full rounded border p-2 opacity-70" placeholder="Unit" />
+                                                )}
+                                            </div>
+
+                                            {/* Unit price */}
+                                            <div>
+                                                <label className="mb-1 block text-sm font-medium">{fi.is_custom ? 'Estimated Unit Price' : 'Unit Price'}</label>
+                                                {fi.is_custom ? (
+                                                    <input type="number" placeholder="0.00" value={fi.unit_price_at_request} onChange={(e) => handleCustomField(idx, 'unit_price_at_request', e.target.value)} className="w-full rounded border p-2" min={0} step="0.01" />
+                                                ) : (
+                                                    <input type="text" value={inv ? formatCurrency(inv.unit_price) : '—'} disabled className="w-full rounded border p-2 opacity-70" placeholder="Unit price" />
+                                                )}
+                                            </div>
+
+                                            {/* Estimated line value */}
+                                            <div>
+                                                <label className="mb-1 block text-sm font-medium">Est. Total</label>
+                                                <div className="rounded border bg-muted/30 p-2 text-sm font-semibold">
+                                                    {qty > 0 ? formatCurrency(estValue) : '—'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-2 flex justify-end">
+                                            <Button type="button" variant="destructive" size="sm" onClick={() => removeItem(idx)}>Remove</Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <Button type="button" variant="outline" onClick={addInventoryItem}>+ Add Inventory Item</Button>
+                            <Button type="button" variant="secondary" onClick={addCustomItem}>+ Add Custom Item</Button>
+                        </div>
                     </div>
+
+                    {form.items.length > 0 && (
+                        <div className="rounded-lg border border-border bg-muted/30 p-3 text-right">
+                            <span className="text-sm text-muted-foreground">Total Estimated Value: </span>
+                            <span className="text-lg font-bold">{formatCurrency(totalValue)}</span>
+                        </div>
+                    )}
+
                     <div className="flex flex-col justify-end gap-2 sm:flex-row">
-                        <Button type="submit" variant="default" disabled={loading} className="w-full sm:w-auto">Submit Request</Button>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.visit('/department-head/requests')}>Cancel</Button>
+                        <Button type="submit" variant="default" disabled={loading} className="w-full sm:w-auto">{loading ? 'Submitting…' : 'Submit Request'}</Button>
                     </div>
                 </form>
             </div>
