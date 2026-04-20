@@ -6,7 +6,6 @@ import {
     createActionsColumn,
     createDateColumn,
     createDepartmentColumn,
-    createItemsColumn,
     createPurposeColumn,
     createRequestedByColumn,
     createStatusColumn,
@@ -29,10 +28,12 @@ import {
 
 interface RequestItem {
     id: number;
-    item_id: number;
+    item_id: number | null;
     quantity: number;
     particular: string;
     unit: string;
+    is_custom?: boolean;
+    unit_price_at_request?: number | null;
 }
 interface Department {
     id: number;
@@ -86,6 +87,7 @@ export default function Requests() {
     const { requests, items, csrf_token } = usePage<SharedData & PageProps>().props;
     const [tableData, setTableData] = useState(requests);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
+    const [viewItemsRequest, setViewItemsRequest] = useState<number | null>(null);
     const [receiptForm, setReceiptForm] = useState({
         delivery_date: new Date().toISOString().slice(0, 10),
         prepared_by: '',
@@ -158,6 +160,8 @@ export default function Requests() {
         const found = itemsList.find(i => i.id === itemId);
         return found ? found.unit_price : 0;
     };
+    const requestTotalValue = (req: { items: RequestItem[] }): number =>
+        req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
     const handleOpenReceipt = (id: number) => {
         const req = tableData.find(r => r.id === id);
         setReceiptForm({
@@ -165,7 +169,7 @@ export default function Requests() {
             prepared_by: '',
             checked_by: '',
             received_by: req?.delivery_receipt?.received_by || req?.requested_by || '',
-            total: req ? req.items.reduce((sum, item) => sum + (item.quantity * getUnitPrice(item.item_id)), 0).toString() : '',
+            total: req ? req.items.reduce((sum, item) => sum + (item.quantity * getUnitPrice(item.item_id ?? 0)), 0).toString() : '',
         });
         setOpenReceipt(id);
     };
@@ -307,7 +311,32 @@ export default function Requests() {
             createPurposeColumn<Request>(),
             createRequestedByColumn<Request>(),
             createStatusColumn<Request>(),
-            createItemsColumn<Request>(),
+            {
+                id: 'items',
+                header: () => 'Items',
+                enableSorting: false,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    const total = requestTotalValue(req);
+                    if (req.items.length === 0) return <span className="text-muted-foreground text-sm">—</span>;
+                    if (req.items.length === 1) {
+                        const item = req.items[0];
+                        return (
+                            <div className="text-sm">
+                                <span className="font-medium">{item.particular}</span>
+                                {item.is_custom && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>}
+                                <div className="text-muted-foreground">{item.quantity} {item.unit}{total > 0 ? ` · ${formatCurrency(total)}` : ''}</div>
+                            </div>
+                        );
+                    }
+                    return (
+                        <div className="flex flex-col gap-1">
+                            <span className="text-sm">{req.items.length} items{total > 0 ? ` · ${formatCurrency(total)}` : ''}</span>
+                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setViewItemsRequest(req.id)}>View Items</Button>
+                        </div>
+                    );
+                },
+            },
             createActionsColumn<Request>((req) => (
                 <div className="flex flex-wrap gap-2 min-[391px]:min-w-[200px]">
                     <Button size="sm" variant="default" onClick={() => handleEndorse(req.id)} disabled={req.status !== 'Pending Endorsement' || processingId === req.id}>
@@ -325,7 +354,7 @@ export default function Requests() {
                     )}
                 </div>
             )),
-        ], [handleEndorse, handleOpenReceipt, processingId]);
+        ], [handleEndorse, handleOpenReceipt, processingId, requestTotalValue]);
 
         const table = useReactTable({
             data: tableData,
@@ -458,8 +487,8 @@ export default function Requests() {
                                                                     <td className="px-3 py-2">{item.particular}</td>
                                                                     <td className="px-3 py-2 text-right">{item.quantity}</td>
                                                                     <td className="px-3 py-2">{item.unit}</td>
-                                                                    <td className="px-3 py-2 text-right">{formatCurrency(getUnitPrice(item.item_id))}</td>
-                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.quantity * getUnitPrice(item.item_id))}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(getUnitPrice(item.item_id ?? 0))}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.quantity * getUnitPrice(item.item_id ?? 0))}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
@@ -480,6 +509,61 @@ export default function Requests() {
                         </Dialog>
                     );
                 })()}
+                    {/* View Items dialog */}
+                    {viewItemsRequest && (() => {
+                        const req = tableData.find(r => r.id === viewItemsRequest);
+                        if (!req) return null;
+                        const total = requestTotalValue(req);
+                        return (
+                            <Dialog open={!!viewItemsRequest} onOpenChange={() => setViewItemsRequest(null)}>
+                                <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-3xl lg:max-w-5xl flex-col overflow-hidden p-0">
+                                    <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
+                                        <DialogTitle>Items — Request #{req.id}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+                                        <div className="overflow-x-auto rounded border border-border/70 bg-background">
+                                            <table className="w-full min-w-[520px] text-sm">
+                                                <thead className="bg-muted/30">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left">Item</th>
+                                                        <th className="px-3 py-2 text-center">Type</th>
+                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                        <th className="px-3 py-2 text-left">Unit</th>
+                                                        <th className="px-3 py-2 text-right">Unit Price</th>
+                                                        <th className="px-3 py-2 text-right">Est. Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {req.items.map((item) => (
+                                                        <tr key={item.id} className="border-t border-border/40">
+                                                            <td className="px-3 py-2">{item.particular}</td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                {item.is_custom
+                                                                    ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>
+                                                                    : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Inventory</span>}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                            <td className="px-3 py-2">{item.unit}</td>
+                                                            <td className="px-3 py-2 text-right">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request) : '—'}</td>
+                                                            <td className="px-3 py-2 text-right font-medium">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request * item.quantity) : '—'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                                {total > 0 && (
+                                                    <tfoot className="border-t-2 border-border">
+                                                        <tr>
+                                                            <td colSpan={5} className="px-3 py-2 text-right font-semibold">Total Estimated Value</td>
+                                                            <td className="px-3 py-2 text-right font-bold">{formatCurrency(total)}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                )}
+                                            </table>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        );
+                    })()}
             </div>
         </AppLayout>
     );
