@@ -182,30 +182,6 @@ export default function EditRequest() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="font-semibold" htmlFor="purpose">Purpose</label>
-                        <input
-                            type="text"
-                            id="purpose"
-                            placeholder="Purpose"
-                            value={form.purpose}
-                            onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))}
-                            className="mt-1 w-full rounded border p-2"
-                            required
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label className="font-semibold">Requested by</label>
-                            <input type="text" value={existingRequest.requested_by} disabled className="mt-1 w-full rounded border p-2" title="Requested by" placeholder="Requested by" />
-                        </div>
-                        <div>
-                            <label className="font-semibold">Status</label>
-                            <input type="text" value={existingRequest.status} disabled className="mt-1 w-full rounded border p-2" title="Status" placeholder="Status" />
-                        </div>
-                    </div>
-
                     {/* Items section */}
                     <div>
                         <div className="mb-3 flex items-center justify-between">
@@ -338,6 +314,30 @@ export default function EditRequest() {
                             <span className="text-lg font-bold">{formatCurrency(totalValue)}</span>
                         </div>
                     )}
+
+                    <div>
+                        <label className="font-semibold" htmlFor="purpose">Purpose</label>
+                        <input
+                            type="text"
+                            id="purpose"
+                            placeholder="Purpose"
+                            value={form.purpose}
+                            onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))}
+                            className="mt-1 w-full rounded border p-2"
+                            required
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label className="font-semibold">Requested by</label>
+                            <input type="text" value={existingRequest.requested_by} disabled className="mt-1 w-full rounded border p-2" title="Requested by" placeholder="Requested by" />
+                        </div>
+                        <div>
+                            <label className="font-semibold">Status</label>
+                            <input type="text" value={existingRequest.status} disabled className="mt-1 w-full rounded border p-2" title="Status" placeholder="Status" />
+                        </div>
+                    </div>
 
                     <div className="flex flex-col justify-end gap-2 sm:flex-row">
                         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.visit('/department-head/requests')}>Cancel</Button>
