@@ -10,8 +10,13 @@ class Request extends Model
     use HasFactory;
 
     protected $fillable = [
-        'date', 'department_id', 'purpose', 'requested_by', 'reviewed_by', 'approved_by', 'noted_by', 'status'
+        'date', 'department_id', 'purpose', 'requested_by', 'reviewed_by', 'approved_by', 'noted_by', 'status', 'locked_at',
     ];
+
+    public function isLocked(): bool
+    {
+        return ! is_null($this->locked_at);
+    }
 
     public function department()
     {
