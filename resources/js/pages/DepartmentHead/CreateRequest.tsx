@@ -19,6 +19,7 @@ interface Item {
 interface PageProps {
     departments: Department[];
     items: Item[];
+    userDepartment: Department | null;
 }
 
 interface AuthUser {
@@ -29,6 +30,7 @@ interface AuthUser {
 
 interface CreateRequestPageProps extends PageProps {
     auth?: { user?: AuthUser };
+    userDepartment: Department | null;
     [key: string]: unknown;
 }
 
@@ -45,10 +47,10 @@ const formatCurrency = (v: number) =>
     `₱ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function CreateRequest() {
-    const { departments, items, auth } = usePage<CreateRequestPageProps>().props;
+    const { departments, items, auth, userDepartment } = usePage<CreateRequestPageProps>().props;
     const today = new Date().toISOString().slice(0, 10);
-    const departmentId = auth?.user?.department_id || (departments[0]?.id ?? '');
-    const departmentName = auth?.user?.department?.name || (departments[0]?.name ?? '');
+    const departmentId = userDepartment?.id ?? auth?.user?.department_id ?? (departments[0]?.id ?? '');
+    const departmentName = userDepartment?.name ?? auth?.user?.department?.name ?? (departments[0]?.name ?? '');
     const requestedBy = auth?.user?.name || '';
 
     const [form, setForm] = useState({
