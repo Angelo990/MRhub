@@ -150,33 +150,6 @@ export default function CreateRequest() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="font-semibold" htmlFor="purpose">Purpose</label>
-                        <input type="text" id="purpose" placeholder="Purpose" value={form.purpose} onChange={handlePurposeChange} className="mt-1 w-full rounded border p-2" required />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label className="font-semibold">Requested by</label>
-                            <input type="text" value={requestedBy} className="mt-1 w-full rounded border p-2" disabled title="Requested by" placeholder="Requested by" />
-                        </div>
-                        <div>
-                            <label className="font-semibold">Reviewed by (Property Custodian)</label>
-                            <input type="text" value={form.reviewed_by} className="mt-1 w-full rounded border p-2" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label className="font-semibold">Approved by (VP Finance)</label>
-                            <input type="text" value={form.approved_by} className="mt-1 w-full rounded border p-2" disabled title="Approved by" placeholder="To be filled by VP Finance" />
-                        </div>
-                        <div>
-                            <label className="font-semibold">Noted by</label>
-                            <input type="text" value={form.noted_by} className="mt-1 w-full rounded border p-2" disabled title="Noted by" placeholder="Noted by" />
-                        </div>
-                    </div>
-
                     {/* Items section */}
                     <div>
                         <div className="mb-3 flex items-center justify-between">
@@ -328,6 +301,33 @@ export default function CreateRequest() {
                             <span className="text-lg font-bold">{formatCurrency(totalValue)}</span>
                         </div>
                     )}
+
+                    <div>
+                        <label className="font-semibold" htmlFor="purpose">Purpose</label>
+                        <input type="text" id="purpose" placeholder="Purpose" value={form.purpose} onChange={handlePurposeChange} className="mt-1 w-full rounded border p-2" required />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label className="font-semibold">Requested by</label>
+                            <input type="text" value={requestedBy} className="mt-1 w-full rounded border p-2" disabled title="Requested by" placeholder="Requested by" />
+                        </div>
+                        <div>
+                            <label className="font-semibold">Reviewed by (Property Custodian)</label>
+                            <input type="text" value={form.reviewed_by} className="mt-1 w-full rounded border p-2" disabled title="Reviewed by" placeholder="To be filled by Property Custodian" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label className="font-semibold">Approved by (VP Finance)</label>
+                            <input type="text" value={form.approved_by} className="mt-1 w-full rounded border p-2" disabled title="Approved by" placeholder="To be filled by VP Finance" />
+                        </div>
+                        <div>
+                            <label className="font-semibold">Noted by</label>
+                            <input type="text" value={form.noted_by} className="mt-1 w-full rounded border p-2" disabled title="Noted by" placeholder="Noted by" />
+                        </div>
+                    </div>
 
                     <div className="flex flex-col justify-end gap-2 sm:flex-row">
                         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.visit('/department-head/requests')}>Cancel</Button>
