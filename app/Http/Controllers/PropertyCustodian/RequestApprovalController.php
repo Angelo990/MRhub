@@ -24,6 +24,7 @@ class RequestApprovalController extends Controller
     public function endorse(HttpRequest $httpRequest, Request $request)
     {
         $request->status = 'Pending Approval';
+        $request->locked_at = now();
         $request->save();
 
         WorkflowNotifier::requestEndorsed($request->loadMissing('department'), $httpRequest->user());

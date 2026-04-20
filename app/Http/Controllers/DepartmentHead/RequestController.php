@@ -61,49 +61,180 @@ class RequestController extends Controller
         $user = auth()->user();
 
         $data = $request->validate([
-            'date' => 'required|date',
-            'purpose' => 'required|string',
-            'requested_by' => 'required|string',
-            'reviewed_by' => 'nullable|string',
-            'approved_by' => 'nullable|string',
-            'noted_by' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|exists:items,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'date'                          => 'required|date',
+            'purpose'                       => 'required|string',
+            'requested_by'                  => 'required|string',
+            'reviewed_by'                   => 'nullable|string',
+            'approved_by'                   => 'nullable|string',
+            'noted_by'                      => 'nullable|string',
+            'items'                         => 'required|array|min:1',
+            'items.*.is_custom'             => 'boolean',
+            'items.*.item_id'               => 'nullable',
+            'items.*.quantity'              => 'required|integer|min:1',
+            'items.*.particular'            => 'required|string',
+            'items.*.unit'                  => 'required|string',
+            'items.*.unit_price_at_request' => 'nullable|numeric|min:0',
         ]);
 
-        $inventoryItems = Item::whereIn('id', collect($data['items'])->pluck('item_id'))
-            ->get()
-            ->keyBy('id');
+        // Validate inventory item_id exists when not custom
+        foreach ($data['items'] as $idx => $item) {
+            $isCustom = ! empty($item['is_custom']);
+            if (! $isCustom && empty($item['item_id'])) {
+                abort(422, 'Inventory item must be selected for non-custom rows.');
+            }
+            if (! $isCustom && ! Item::where('id', $item['item_id'])->exists()) {
+                abort(422, 'Selected inventory item is invalid.');
+            }
+        }
+
+        $inventoryItemIds = collect($data['items'])
+            ->filter(fn($i) => empty($i['is_custom']))
+            ->pluck('item_id')
+            ->filter()
+            ->unique();
+
+        $inventoryItems = Item::whereIn('id', $inventoryItemIds)->get()->keyBy('id');
 
         $requestModel = Request::create([
-            'date' => $data['date'],
-            'department_id' => $user->department_id,
-            'purpose' => $data['purpose'],
+            'date'         => $data['date'],
+            'department_id'=> $user->department_id,
+            'purpose'      => $data['purpose'],
             'requested_by' => $data['requested_by'],
-            'reviewed_by' => $data['reviewed_by'] ?? null,
-            'approved_by' => $data['approved_by'] ?? null,
-            'noted_by' => $data['noted_by'] ?? null,
-            'status' => 'Pending Endorsement',
+            'reviewed_by'  => $data['reviewed_by'] ?? null,
+            'approved_by'  => $data['approved_by'] ?? null,
+            'noted_by'     => $data['noted_by'] ?? null,
+            'status'       => 'Pending Endorsement',
         ]);
 
         foreach ($data['items'] as $item) {
-            $inventoryItem = $inventoryItems->get((int) $item['item_id']);
+            $isCustom = ! empty($item['is_custom']);
 
-            if (! $inventoryItem) {
-                abort(422, 'Selected inventory item is invalid.');
+            if ($isCustom) {
+                RequestItem::create([
+                    'request_id'             => $requestModel->id,
+                    'item_id'                => null,
+                    'quantity'               => $item['quantity'],
+                    'particular'             => $item['particular'],
+                    'unit'                   => $item['unit'],
+                    'is_custom'              => true,
+                    'unit_price_at_request'  => $item['unit_price_at_request'] ?? null,
+                ]);
+            } else {
+                $inventoryItem = $inventoryItems->get((int) $item['item_id']);
+
+                RequestItem::create([
+                    'request_id'             => $requestModel->id,
+                    'item_id'                => $item['item_id'],
+                    'quantity'               => $item['quantity'],
+                    'particular'             => $inventoryItem->name,
+                    'unit'                   => $inventoryItem->unit,
+                    'is_custom'              => false,
+                    'unit_price_at_request'  => $inventoryItem->unit_price,
+                ]);
             }
-
-            RequestItem::create([
-                'request_id' => $requestModel->id,
-                'item_id' => $item['item_id'],
-                'quantity' => $item['quantity'],
-                'particular' => $inventoryItem->name,
-                'unit' => $inventoryItem->unit,
-            ]);
         }
 
         WorkflowNotifier::requestSubmitted($requestModel->loadMissing('department'), $user);
+
+        return Redirect::route('department-head.requests.index');
+    }
+
+    // Show form for editing an existing request
+    public function edit(HttpRequest $httpRequest, Request $request)
+    {
+        $user = $httpRequest->user();
+
+        // Only the owning department can edit, and only when unlocked
+        if ($request->department_id !== $user->department_id) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if ($request->isLocked()) {
+            return Redirect::route('department-head.requests.index')
+                ->with('error', 'This request has been endorsed and can no longer be edited.');
+        }
+
+        $departments = Department::all();
+        $items = Item::all();
+        $request->load('items', 'department');
+
+        return Inertia::render('DepartmentHead/EditRequest', compact('request', 'departments', 'items'));
+    }
+
+    // Update an existing request
+    public function update(HttpRequest $httpRequest, Request $request)
+    {
+        $user = $httpRequest->user();
+
+        if ($request->department_id !== $user->department_id) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if ($request->isLocked()) {
+            abort(403, 'This request has been endorsed and can no longer be edited.');
+        }
+
+        $data = $httpRequest->validate([
+            'purpose'                       => 'required|string',
+            'items'                         => 'required|array|min:1',
+            'items.*.is_custom'             => 'boolean',
+            'items.*.item_id'               => 'nullable',
+            'items.*.quantity'              => 'required|integer|min:1',
+            'items.*.particular'            => 'required|string',
+            'items.*.unit'                  => 'required|string',
+            'items.*.unit_price_at_request' => 'nullable|numeric|min:0',
+        ]);
+
+        foreach ($data['items'] as $item) {
+            $isCustom = ! empty($item['is_custom']);
+            if (! $isCustom && empty($item['item_id'])) {
+                abort(422, 'Inventory item must be selected for non-custom rows.');
+            }
+            if (! $isCustom && ! Item::where('id', $item['item_id'])->exists()) {
+                abort(422, 'Selected inventory item is invalid.');
+            }
+        }
+
+        $inventoryItemIds = collect($data['items'])
+            ->filter(fn($i) => empty($i['is_custom']))
+            ->pluck('item_id')
+            ->filter()
+            ->unique();
+
+        $inventoryItems = Item::whereIn('id', $inventoryItemIds)->get()->keyBy('id');
+
+        $request->update(['purpose' => $data['purpose']]);
+
+        // Replace all items
+        $request->items()->delete();
+
+        foreach ($data['items'] as $item) {
+            $isCustom = ! empty($item['is_custom']);
+
+            if ($isCustom) {
+                RequestItem::create([
+                    'request_id'             => $request->id,
+                    'item_id'                => null,
+                    'quantity'               => $item['quantity'],
+                    'particular'             => $item['particular'],
+                    'unit'                   => $item['unit'],
+                    'is_custom'              => true,
+                    'unit_price_at_request'  => $item['unit_price_at_request'] ?? null,
+                ]);
+            } else {
+                $inventoryItem = $inventoryItems->get((int) $item['item_id']);
+
+                RequestItem::create([
+                    'request_id'             => $request->id,
+                    'item_id'                => $item['item_id'],
+                    'quantity'               => $item['quantity'],
+                    'particular'             => $inventoryItem->name,
+                    'unit'                   => $inventoryItem->unit,
+                    'is_custom'              => false,
+                    'unit_price_at_request'  => $inventoryItem->unit_price,
+                ]);
+            }
+        }
 
         return Redirect::route('department-head.requests.index');
     }

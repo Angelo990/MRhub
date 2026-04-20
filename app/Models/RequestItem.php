@@ -10,7 +10,7 @@ class RequestItem extends Model
     use HasFactory;
 
     protected $fillable = [
-        'request_id', 'item_id', 'quantity', 'particular', 'unit'
+        'request_id', 'item_id', 'quantity', 'particular', 'unit', 'is_custom', 'unit_price_at_request',
     ];
 
     public function request()
