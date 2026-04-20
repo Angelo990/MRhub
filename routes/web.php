@@ -94,6 +94,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'index'])->name('index');
             Route::get('/create', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'create'])->name('create');
             Route::post('/', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'store'])->name('store');
+            Route::get('/{request}/edit', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'edit'])->name('edit');
+            Route::put('/{request}', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'update'])->name('update');
             Route::post('/{request}/received', [\App\Http\Controllers\DepartmentHead\RequestController::class, 'markReceived'])->name('received');
         });
     });
