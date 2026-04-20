@@ -50,9 +50,11 @@ class RequestController extends Controller
     // Show form for creating a new request
     public function create()
     {
+        $user = auth()->user()->load('department');
         $departments = Department::all();
         $items = Item::all();
-        return Inertia::render('DepartmentHead/CreateRequest', compact('departments', 'items'));
+        $userDepartment = $user->department;
+        return Inertia::render('DepartmentHead/CreateRequest', compact('departments', 'items', 'userDepartment'));
     }
 
     // Store a new request
