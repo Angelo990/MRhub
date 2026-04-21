@@ -17,6 +17,8 @@ class RequestApprovalController extends Controller
     {
         $requests = Request::with(['items', 'department'])
             ->where('status', 'Pending Approval')
+            ->orderByDesc('is_urgent')
+            ->latest()
             ->get();
         return inertia('VPFinance/Requests', compact('requests'));
     }

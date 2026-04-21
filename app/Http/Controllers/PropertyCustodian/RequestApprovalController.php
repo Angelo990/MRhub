@@ -15,6 +15,8 @@ class RequestApprovalController extends Controller
     {
         $requests = Request::with(['items', 'department', 'deliveryReceipt.items', 'deliveryReceipts.items'])
             ->whereIn('status', ['Pending Endorsement', 'Pending Approval', 'Approved', 'Partially Released', 'Ready for Pickup', 'Released'])
+            ->orderByDesc('is_urgent')
+            ->latest()
             ->get();
         $items = \App\Models\Item::all();
         return inertia('PropertyCustodian/Requests', compact('requests', 'items'));

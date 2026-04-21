@@ -164,10 +164,18 @@ export function NotificationMenu() {
                                 className={`flex w-full flex-col gap-1 px-3 py-3 text-left transition hover:bg-accent ${notification.readAt ? 'opacity-75' : ''}`}
                             >
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="text-sm font-medium">{notification.title}</div>
+                                    <div className="text-sm font-medium">
+                                        {notification.title.startsWith('[URGENT]') ? (
+                                            <><span className="text-red-600">[URGENT]</span>{notification.title.slice(8)}</>
+                                        ) : notification.title}
+                                    </div>
                                     {!notification.readAt && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-600" />}
                                 </div>
-                                <div className="text-muted-foreground text-xs leading-5">{notification.message}</div>
+                                <div className="text-muted-foreground text-xs leading-5">
+                                    {notification.message.startsWith('[URGENT]') ? (
+                                        <><span className="text-red-600 font-medium">[URGENT]</span>{notification.message.slice(8)}</>
+                                    ) : notification.message}
+                                </div>
                                 <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
                                     <span>{notification.actionLabel}</span>
                                     <span>{notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}</span>
@@ -194,8 +202,16 @@ export function NotificationMenu() {
                 <div className="fixed right-4 top-20 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-xl border bg-background/95 p-4 shadow-lg backdrop-blur">
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                            <p className="text-sm font-semibold">{toastNotification.title}</p>
-                            <p className="text-xs leading-5 text-muted-foreground">{toastNotification.message}</p>
+                            <p className="text-sm font-semibold">
+                                {toastNotification.title.startsWith('[URGENT]') ? (
+                                    <><span className="text-red-600">[URGENT]</span>{toastNotification.title.slice(8)}</>
+                                ) : toastNotification.title}
+                            </p>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                                {toastNotification.message.startsWith('[URGENT]') ? (
+                                    <><span className="text-red-600 font-medium">[URGENT]</span>{toastNotification.message.slice(8)}</>
+                                ) : toastNotification.message}
+                            </p>
                         </div>
                         <button
                             type="button"

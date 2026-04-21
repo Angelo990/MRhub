@@ -39,6 +39,7 @@ class RequestController extends Controller
 
         $requests = Request::with(['items', 'department', 'deliveryReceipt.items'])
             ->where('department_id', $user->department_id)
+            ->orderByDesc('is_urgent')
             ->latest()
             ->get();
 
