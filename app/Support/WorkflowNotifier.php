@@ -12,9 +12,11 @@ class WorkflowNotifier
 {
     public static function requestSubmitted(SupplyRequest $request, ?User $actor = null): void
     {
+        $urgentPrefix = $request->is_urgent ? '[URGENT] ' : '';
+
         self::sendToRole('property-custodian', [
-            'title' => 'New request submitted',
-            'message' => "Request #{$request->id} from {$request->department?->name} is waiting for endorsement.",
+            'title' => $urgentPrefix . 'New request submitted',
+            'message' => $urgentPrefix . "Request #{$request->id} from {$request->department?->name} is waiting for endorsement.",
             'action_url' => route('property-custodian.requests.index'),
             'action_label' => 'Open requests',
             'request_id' => $request->id,
