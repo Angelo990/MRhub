@@ -65,6 +65,7 @@ class RequestController extends Controller
         $data = $request->validate([
             'date'                          => 'required|date',
             'purpose'                       => 'required|string',
+            'is_urgent'                     => 'boolean',
             'requested_by'                  => 'required|string',
             'reviewed_by'                   => 'nullable|string',
             'approved_by'                   => 'nullable|string',
@@ -101,6 +102,7 @@ class RequestController extends Controller
             'date'         => $data['date'],
             'department_id'=> $user->department_id,
             'purpose'      => $data['purpose'],
+            'is_urgent'    => ! empty($data['is_urgent']),
             'requested_by' => $data['requested_by'],
             'reviewed_by'  => $data['reviewed_by'] ?? null,
             'approved_by'  => $data['approved_by'] ?? null,
@@ -178,6 +180,7 @@ class RequestController extends Controller
 
         $data = $httpRequest->validate([
             'purpose'                       => 'required|string',
+            'is_urgent'                     => 'boolean',
             'items'                         => 'required|array|min:1',
             'items.*.is_custom'             => 'boolean',
             'items.*.item_id'               => 'nullable',
@@ -205,7 +208,7 @@ class RequestController extends Controller
 
         $inventoryItems = Item::whereIn('id', $inventoryItemIds)->get()->keyBy('id');
 
-        $request->update(['purpose' => $data['purpose']]);
+        $request->update(['purpose' => $data['purpose'], 'is_urgent' => ! empty($data['is_urgent'])]);
 
         // Replace all items
         $request->items()->delete();
