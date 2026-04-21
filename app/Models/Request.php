@@ -30,6 +30,20 @@ class Request extends Model
 
     public function deliveryReceipt()
     {
-        return $this->hasOne(DeliveryReceipt::class);
+        return $this->hasOne(DeliveryReceipt::class)->latest();
+    }
+
+    public function deliveryReceipts()
+    {
+        return $this->hasMany(DeliveryReceipt::class);
+    }
+
+    public function isFullyFulfilled(): bool
+    {
+        $activeItems = $this->items->filter(fn ($i) => ! $i->isRejected());
+        if ($activeItems->isEmpty()) {
+            return false;
+        }
+        return $activeItems->every(fn ($i) => $i->quantity_fulfilled >= $i->quantity);
     }
 }
