@@ -1,5 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import type { ReactNode } from 'react';
+import React from 'react';
 
 interface DepartmentLike {
     name: string;
@@ -18,6 +19,7 @@ export interface BaseRequestTableRow {
     purpose: string;
     requested_by?: string;
     status: string;
+    is_urgent?: boolean;
     items: RequestItemLike[];
 }
 
@@ -25,7 +27,19 @@ export function createDateColumn<TData extends BaseRequestTableRow>(): ColumnDef
     return {
         accessorKey: 'date',
         header: () => 'Date',
-        cell: ({ row }) => row.original.date,
+        cell: ({ row }) => (
+            <span className="inline-flex items-center gap-1.5">
+                {row.original.is_urgent && (
+                    <span
+                        className="inline-flex h-5 w-5 animate-bounce items-center justify-center rounded-full bg-red-600 text-[10px] font-extrabold text-white shadow"
+                        title="Urgent request"
+                    >
+                        !
+                    </span>
+                )}
+                {row.original.date}
+            </span>
+        ),
     };
 }
 
