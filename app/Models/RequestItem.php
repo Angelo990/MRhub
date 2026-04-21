@@ -11,7 +11,18 @@ class RequestItem extends Model
 
     protected $fillable = [
         'request_id', 'item_id', 'quantity', 'particular', 'unit', 'is_custom', 'unit_price_at_request',
+        'rejection_reason', 'rejected_by', 'quantity_fulfilled',
     ];
+
+    public function isRejected(): bool
+    {
+        return ! is_null($this->rejection_reason);
+    }
+
+    public function remainingQuantity(): int
+    {
+        return max(0, $this->quantity - $this->quantity_fulfilled);
+    }
 
     public function request()
     {
