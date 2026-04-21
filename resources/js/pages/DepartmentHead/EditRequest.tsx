@@ -31,6 +31,7 @@ interface ExistingRequest {
     date: string;
     department_id: number;
     purpose: string;
+    is_urgent: boolean;
     requested_by: string;
     reviewed_by: string | null;
     approved_by: string | null;
@@ -97,6 +98,7 @@ export default function EditRequest() {
 
     const [form, setForm] = useState({
         purpose: existingRequest.purpose,
+        is_urgent: existingRequest.is_urgent ?? false,
         items: initialItems,
     });
     const [itemSearches, setItemSearches] = useState<string[]>(initialSearches);
@@ -180,6 +182,27 @@ export default function EditRequest() {
                             <label className="font-semibold">Department</label>
                             <input type="text" value={existingRequest.department?.name ?? ''} disabled className="mt-1 w-full rounded border p-2" title="Department" placeholder="Department" />
                         </div>
+                    </div>
+
+                    {/* Urgent toggle */}
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, is_urgent: !prev.is_urgent }))}
+                            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                                form.is_urgent
+                                    ? 'border-red-400 bg-red-600 text-white shadow-sm hover:bg-red-700'
+                                    : 'border-border bg-card text-muted-foreground hover:border-red-300 hover:text-red-600'
+                            }`}
+                        >
+                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-extrabold ${
+                                form.is_urgent ? 'animate-bounce bg-white text-red-600' : 'bg-muted text-muted-foreground'
+                            }`}>!</span>
+                            {form.is_urgent ? 'Marked as Urgent' : 'Mark as Urgent'}
+                        </button>
+                        {form.is_urgent && (
+                            <p className="mt-1 text-xs text-red-600">This request will be flagged as urgent. Notifications will include an [URGENT] prefix.</p>
+                        )}
                     </div>
 
                     {/* Items section */}
