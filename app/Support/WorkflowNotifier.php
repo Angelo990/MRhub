@@ -95,6 +95,44 @@ class WorkflowNotifier
         ], $actor?->id);
     }
 
+    public static function requestItemsRejected(SupplyRequest $request, array $rejectedItems, ?User $actor = null): void
+    {
+        $itemList = implode(', ', array_map(fn ($i) => $i['particular'], $rejectedItems));
+
+        self::sendToDepartmentHead($request, [
+            'title' => 'Some items were rejected',
+            'message' => "Request #{$request->id} was approved but the following items were rejected: {$itemList}. The remaining items will proceed.",
+            'action_url' => route('department-head.requests.index'),
+            'action_label' => 'View request',
+            'request_id' => $request->id,
+            'status' => $request->status,
+            'type' => 'request-items-rejected',
+        ], $actor?->id);
+
+        self::sendToRole('property-custodian', [
+            'title' => 'Request approved with item rejections',
+            'message' => "Request #{$request->id} is approved. Note: {$itemList} were rejected. Only non-rejected items need fulfillment.",
+            'action_url' => route('property-custodian.requests.index'),
+            'action_label' => 'View requests',
+            'request_id' => $request->id,
+            'status' => $request->status,
+            'type' => 'request-items-rejected',
+        ], $actor?->id);
+    }
+
+    public static function requestPartiallyReleased(SupplyRequest $request, ?User $actor = null): void
+    {
+        self::sendToDepartmentHead($request, [
+            'title' => 'Request partially fulfilled',
+            'message' => "Request #{$request->id} was partially fulfilled. Some items are still pending release.",
+            'action_url' => route('department-head.requests.index'),
+            'action_label' => 'View request',
+            'request_id' => $request->id,
+            'status' => $request->status,
+            'type' => 'request-partially-released',
+        ], $actor?->id);
+    }
+
     public static function requestCompleted(SupplyRequest $request, ?User $actor = null): void
     {
         self::sendToRole('property-custodian', [
