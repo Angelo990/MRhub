@@ -34,6 +34,9 @@ interface RequestItem {
     unit: string;
     is_custom?: boolean;
     unit_price_at_request?: number | null;
+    rejection_reason?: string | null;
+    rejected_by?: string | null;
+    quantity_fulfilled?: number;
 }
 interface Department {
     id: number;
@@ -65,6 +68,7 @@ interface Request {
     status: string;
     items: RequestItem[];
     delivery_receipt?: DeliveryReceipt;
+    delivery_receipts?: DeliveryReceipt[];
 }
 interface Item {
     id: number;
@@ -88,12 +92,13 @@ export default function Requests() {
     const [tableData, setTableData] = useState(requests);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [viewItemsRequest, setViewItemsRequest] = useState<number | null>(null);
+    // Per-item release quantities indexed by RequestItem id
+    const [releaseQtys, setReleaseQtys] = useState<Record<number, number>>({});
     const [receiptForm, setReceiptForm] = useState({
         delivery_date: new Date().toISOString().slice(0, 10),
         prepared_by: '',
         checked_by: '',
         received_by: '',
-        total: '',
     });
     const [error, setError] = useState<string | null>(null);
     const [processingId, setProcessingId] = useState<number | null>(null);
@@ -164,12 +169,21 @@ export default function Requests() {
         req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
     const handleOpenReceipt = (id: number) => {
         const req = tableData.find(r => r.id === id);
+        // Pre-fill release quantities with remaining quantity per item (skip rejected)
+        const initial: Record<number, number> = {};
+        req?.items.forEach((item) => {
+            if (!item.rejection_reason) {
+                const fulfilled = item.quantity_fulfilled ?? 0;
+                const remaining = Math.max(0, item.quantity - fulfilled);
+                if (remaining > 0) initial[item.id] = remaining;
+            }
+        });
+        setReleaseQtys(initial);
         setReceiptForm({
             delivery_date: new Date().toISOString().slice(0, 10),
             prepared_by: '',
             checked_by: '',
-            received_by: req?.delivery_receipt?.received_by || req?.requested_by || '',
-            total: req ? req.items.reduce((sum, item) => sum + (item.quantity * getUnitPrice(item.item_id ?? 0)), 0).toString() : '',
+            received_by: req?.requested_by || '',
         });
         setOpenReceipt(id);
     };
@@ -275,6 +289,20 @@ export default function Requests() {
         setProcessingId(id);
         setError(null);
 
+        // Build items array from releaseQtys (only entries with qty > 0)
+        const itemsToRelease = Object.entries(releaseQtys)
+            .filter(([, qty]) => qty > 0)
+            .map(([requestItemId, qty]) => ({
+                request_item_id: Number(requestItemId),
+                quantity_to_release: qty,
+            }));
+
+        if (itemsToRelease.length === 0) {
+            setError('Please enter a quantity for at least one item.');
+            setProcessingId(null);
+            return;
+        }
+
         try {
             const response = await fetch(`/property-custodian/requests/${id}/delivery-receipt`, {
                 method: 'POST',
@@ -285,7 +313,7 @@ export default function Requests() {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrf_token,
                 },
-                body: JSON.stringify(receiptForm),
+                body: JSON.stringify({ ...receiptForm, items: itemsToRelease }),
             });
 
             if (!response.ok) {
@@ -347,7 +375,12 @@ export default function Requests() {
                             Release Items
                         </Button>
                     )}
-                    {req.status === 'Released' && req.delivery_receipt && (
+                    {req.status === 'Partially Released' && (
+                        <Button size="sm" variant="secondary" onClick={() => handleOpenReceipt(req.id)} disabled={processingId === req.id}>
+                            Release More
+                        </Button>
+                    )}
+                    {(req.status === 'Released' || req.status === 'Partially Released') && req.delivery_receipt && (
                         <Button size="sm" variant="outline" onClick={() => setOpenReceipt(req.id)} disabled={processingId === req.id}>
                             View Receipt
                         </Button>
@@ -400,103 +433,148 @@ export default function Requests() {
                 {/* ...existing code for Dialog, etc... */}
                 {openReceipt && (() => {
                     const req = tableData.find(r => r.id === openReceipt);
-                    const isReleasedReceipt = req?.status === 'Released' && req.delivery_receipt;
+                    const isViewMode = (req?.status === 'Released' || req?.status === 'Completed') && !!(req?.delivery_receipt || req?.delivery_receipts?.length);
+                    const batches = req?.delivery_receipts ?? (req?.delivery_receipt ? [req.delivery_receipt] : []);
                     return (
                         <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
                             <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-4xl flex-col overflow-hidden p-0">
                                 <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
-                                    <DialogTitle>{isReleasedReceipt ? 'Delivery Receipt' : 'Release Items'}</DialogTitle>
+                                    <DialogTitle>{isViewMode ? 'Delivery Receipts' : 'Release Items'}</DialogTitle>
                                 </DialogHeader>
                                 <div
                                     data-modal-body
-                                    className={`min-h-0 flex-1 px-4 py-4 sm:px-6 ${isReleasedReceipt ? 'overflow-y-auto' : 'flex flex-col overflow-hidden'}`}
+                                    className={`min-h-0 flex-1 px-4 py-4 sm:px-6 ${isViewMode ? 'overflow-y-auto' : 'flex flex-col overflow-hidden'}`}
                                 >
-                                {isReleasedReceipt && req.delivery_receipt ? (
-                                    <div className="space-y-3">
-                                        <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
-                                            <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
-                                                Print
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptExcel(req)}>
-                                                Export Excel
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptCsv(req)}>
-                                                Export CSV
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptPdf(req)}>
-                                                Export PDF
-                                            </Button>
-                                        </div>
-                                        <div><strong>Delivery Date:</strong> {req.delivery_receipt.delivery_date}</div>
-                                        <div><strong>Prepared by:</strong> {req.delivery_receipt.prepared_by}</div>
-                                        <div><strong>Checked & Delivered by:</strong> {req.delivery_receipt.checked_by}</div>
-                                        <div><strong>Received by:</strong> {req.delivery_receipt.received_by}</div>
-                                        <div><strong>Status:</strong> {req.status}</div>
-                                        <div><strong>Total:</strong> {formatCurrency(req.delivery_receipt.total)}</div>
-                                        <div data-receipt-table-wrapper className="overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-visible">
-                                            <table className="w-full min-w-[640px] text-sm md:min-w-0">
-                                                <thead className="bg-muted/30">
-                                                    <tr>
-                                                        <th className="px-3 py-2 text-left">Item</th>
-                                                        <th className="px-3 py-2 text-right">Qty</th>
-                                                        <th className="px-3 py-2 text-left">Unit</th>
-                                                        <th className="px-3 py-2 text-right">Unit Price</th>
-                                                        <th className="px-3 py-2 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {req.delivery_receipt.items?.map((item) => (
-                                                        <tr key={item.id}>
-                                                            <td className="px-3 py-2">{item.particular}</td>
-                                                            <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
-                                                            <td className="px-3 py-2">{item.unit}</td>
-                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
-                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {error && <div className="text-red-500 mb-2">{error}</div>}
-                                        <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
-                                            <label htmlFor="delivery_date" className="font-semibold">Delivery Date</label>
-                                            <input type="date" id="delivery_date" name="delivery_date" value={receiptForm.delivery_date} disabled className="border rounded p-2" title="Delivery Date" placeholder="Delivery Date" />
-                                            <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="border rounded p-2" />
-                                            <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="border rounded p-2" />
-                                            <label htmlFor="received_by" className="font-semibold">Received by</label>
-                                            <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="border rounded p-2" title="Received by" placeholder="Received by" />
-                                            <div className="min-h-0 flex flex-1 flex-col rounded border border-border/70 bg-muted/30 p-2">
-                                                <div className="font-semibold mb-2">Items</div>
-                                                <div data-receipt-table-wrapper className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-hidden">
-                                                    <table className="w-full min-w-[640px] text-sm md:min-w-0">
+                                {isViewMode ? (
+                                    <div className="space-y-6">
+                                        {batches.map((receipt, batchIdx) => (
+                                            <div key={receipt.id} className="rounded-lg border border-border/70">
+                                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-muted/30 px-4 py-2">
+                                                    <span className="font-semibold text-sm">Batch #{batchIdx + 1} — Receipt #{receipt.id}</span>
+                                                    <div className="flex gap-2">
+                                                        <Button type="button" size="sm" variant="outline" onClick={() => handlePrintReceipt({ ...req!, delivery_receipt: receipt })}>Print</Button>
+                                                        <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptExcel({ ...req!, delivery_receipt: receipt })}>Excel</Button>
+                                                        <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptCsv({ ...req!, delivery_receipt: receipt })}>CSV</Button>
+                                                        <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptPdf({ ...req!, delivery_receipt: receipt })}>PDF</Button>
+                                                    </div>
+                                                </div>
+                                                <div className="px-4 py-3 text-sm space-y-1">
+                                                    <div><strong>Delivery Date:</strong> {receipt.delivery_date}</div>
+                                                    <div><strong>Prepared by:</strong> {receipt.prepared_by}</div>
+                                                    <div><strong>Checked & Delivered by:</strong> {receipt.checked_by}</div>
+                                                    <div><strong>Received by:</strong> {receipt.received_by}</div>
+                                                    <div><strong>Batch Total:</strong> {formatCurrency(receipt.total)}</div>
+                                                </div>
+                                                <div className="overflow-x-auto px-4 pb-4">
+                                                    <table className="w-full min-w-[520px] text-sm">
                                                         <thead className="bg-muted/30">
                                                             <tr>
                                                                 <th className="px-3 py-2 text-left">Item</th>
-                                                                <th className="px-3 py-2 text-right">Qty</th>
+                                                                <th className="px-3 py-2 text-right">Delivered</th>
                                                                 <th className="px-3 py-2 text-left">Unit</th>
                                                                 <th className="px-3 py-2 text-right">Unit Price</th>
                                                                 <th className="px-3 py-2 text-right">Total</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {req?.items.map(item => (
-                                                                <tr key={item.id}>
+                                                            {receipt.items?.map((item) => (
+                                                                <tr key={item.id} className="border-t border-border/40">
                                                                     <td className="px-3 py-2">{item.particular}</td>
-                                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                                    <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
                                                                     <td className="px-3 py-2">{item.unit}</td>
-                                                                    <td className="px-3 py-2 text-right">{formatCurrency(getUnitPrice(item.item_id ?? 0))}</td>
-                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.quantity * getUnitPrice(item.item_id ?? 0))}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
+                                                                    <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </div>
-                                            <label htmlFor="total" className="font-semibold">Total</label>
-                                            <input type="number" id="total" name="total" value={receiptForm.total} disabled placeholder="Total" className="border rounded p-2" title="Total" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {error && <div className="mb-2 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+                                        <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={e => { e.preventDefault(); handleSubmitReceipt(openReceipt); }}>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                <div>
+                                                    <label htmlFor="delivery_date" className="mb-1 block text-sm font-semibold">Delivery Date</label>
+                                                    <input type="date" id="delivery_date" name="delivery_date" value={receiptForm.delivery_date} disabled className="w-full rounded border p-2 text-sm" title="Delivery Date" placeholder="Delivery Date" />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-sm font-semibold">Prepared by</label>
+                                                    <input type="text" name="prepared_by" value={receiptForm.prepared_by} onChange={handleReceiptChange} required placeholder="Prepared by" className="w-full rounded border p-2 text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-sm font-semibold">Checked & Delivered by</label>
+                                                    <input type="text" name="checked_by" value={receiptForm.checked_by} onChange={handleReceiptChange} required placeholder="Checked & Delivered by" className="w-full rounded border p-2 text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="received_by" className="mb-1 block text-sm font-semibold">Received by</label>
+                                                    <input type="text" id="received_by" name="received_by" value={receiptForm.received_by} onChange={handleReceiptChange} required className="w-full rounded border p-2 text-sm" title="Received by" placeholder="Received by" />
+                                                </div>
+                                            </div>
+
+                                            <div className="min-h-0 flex flex-1 flex-col rounded border border-border/70 bg-muted/30 p-2">
+                                                <div className="font-semibold mb-2 text-sm">Items to Release</div>
+                                                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded border border-border/70 bg-background">
+                                                    <table className="w-full min-w-[540px] text-sm">
+                                                        <thead className="bg-muted/30">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-left">Item</th>
+                                                                <th className="px-3 py-2 text-center">Status</th>
+                                                                <th className="px-3 py-2 text-right">Progress</th>
+                                                                <th className="px-3 py-2 text-right">Qty to Release</th>
+                                                                <th className="px-3 py-2 text-left">Unit</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {req?.items.map(item => {
+                                                                const fulfilled = item.quantity_fulfilled ?? 0;
+                                                                const remaining = Math.max(0, item.quantity - fulfilled);
+                                                                const isRejected = !!item.rejection_reason;
+                                                                return (
+                                                                    <tr key={item.id} className={`border-t border-border/40 ${isRejected ? 'bg-red-50/60 dark:bg-red-950/10' : ''}`}>
+                                                                        <td className="px-3 py-2">
+                                                                            <span className={isRejected ? 'line-through text-muted-foreground' : ''}>{item.particular}</span>
+                                                                            {isRejected && (
+                                                                                <p className="text-xs text-red-600 mt-0.5">Rejected: {item.rejection_reason}</p>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-3 py-2 text-center">
+                                                                            {isRejected
+                                                                                ? <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-700">Rejected</span>
+                                                                                : fulfilled > 0
+                                                                                    ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Partial</span>
+                                                                                    : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Pending</span>}
+                                                                        </td>
+                                                                        <td className="px-3 py-2 text-right text-muted-foreground">
+                                                                            {fulfilled}/{item.quantity}
+                                                                        </td>
+                                                                        <td className="px-3 py-2 text-right">
+                                                                            {isRejected ? (
+                                                                                <span className="text-muted-foreground">—</span>
+                                                                            ) : (
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min={0}
+                                                                                    max={remaining}
+                                                                                    value={releaseQtys[item.id] ?? 0}
+                                                                                    onChange={(e) => setReleaseQtys((prev) => ({ ...prev, [item.id]: Math.min(remaining, Math.max(0, Number(e.target.value))) }))}
+                                                                                    className="w-20 rounded border px-2 py-1 text-right text-sm"
+                                                                                    title={`Max: ${remaining}`}
+                                                                                />
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-3 py-2">{item.unit}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
                                             <div className="shrink-0 flex flex-col justify-end gap-2 border-t border-border/70 bg-background pt-3 sm:flex-row">
                                                 <Button type="submit" variant="default" disabled={processingId === openReceipt} className="w-full sm:w-auto">Release</Button>
                                                 <Button type="button" variant="outline" onClick={() => setOpenReceipt(null)} className="w-full sm:w-auto">Cancel</Button>
@@ -527,27 +605,38 @@ export default function Requests() {
                                                     <tr>
                                                         <th className="px-3 py-2 text-left">Item</th>
                                                         <th className="px-3 py-2 text-center">Type</th>
-                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                        <th className="px-3 py-2 text-right">Progress</th>
                                                         <th className="px-3 py-2 text-left">Unit</th>
                                                         <th className="px-3 py-2 text-right">Unit Price</th>
                                                         <th className="px-3 py-2 text-right">Est. Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {req.items.map((item) => (
-                                                        <tr key={item.id} className="border-t border-border/40">
-                                                            <td className="px-3 py-2">{item.particular}</td>
-                                                            <td className="px-3 py-2 text-center">
-                                                                {item.is_custom
-                                                                    ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>
-                                                                    : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Inventory</span>}
+                                                    {req.items.map((item) => {
+                                                        const fulfilled = item.quantity_fulfilled ?? 0;
+                                                        const isRejected = !!item.rejection_reason;
+                                                        return (
+                                                        <tr key={item.id} className={`border-t border-border/40 ${isRejected ? 'bg-red-50/50 dark:bg-red-950/10' : ''}`}>
+                                                            <td className="px-3 py-2">
+                                                                <span className={isRejected ? 'line-through text-muted-foreground' : ''}>{item.particular}</span>
+                                                                {isRejected && <p className="text-xs text-red-600 mt-0.5">Rejected: {item.rejection_reason}</p>}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                {isRejected
+                                                                    ? <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-700">Rejected</span>
+                                                                    : item.is_custom
+                                                                        ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>
+                                                                        : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Inventory</span>}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                {isRejected ? <span className="text-muted-foreground">—</span> : `${fulfilled}/${item.quantity}`}
+                                                            </td>
                                                             <td className="px-3 py-2">{item.unit}</td>
                                                             <td className="px-3 py-2 text-right">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request) : '—'}</td>
                                                             <td className="px-3 py-2 text-right font-medium">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request * item.quantity) : '—'}</td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                                 {total > 0 && (
                                                     <tfoot className="border-t-2 border-border">
