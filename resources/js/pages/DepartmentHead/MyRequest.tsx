@@ -33,6 +33,9 @@ interface RequestItem {
     unit: string;
     is_custom?: boolean;
     unit_price_at_request?: number | null;
+    rejection_reason?: string | null;
+    rejected_by?: string | null;
+    quantity_fulfilled?: number;
 }
 interface Department {
     id: number;
@@ -436,27 +439,44 @@ export default function MyRequest() {
                                                     <tr>
                                                         <th className="px-3 py-2 text-left">Item</th>
                                                         <th className="px-3 py-2 text-center">Type</th>
-                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                        <th className="px-3 py-2 text-right">Progress</th>
                                                         <th className="px-3 py-2 text-left">Unit</th>
                                                         <th className="px-3 py-2 text-right">Unit Price</th>
                                                         <th className="px-3 py-2 text-right">Est. Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {req.items.map((item) => (
-                                                        <tr key={item.id} className="border-t border-border/40">
-                                                            <td className="px-3 py-2">{item.particular}</td>
-                                                            <td className="px-3 py-2 text-center">
-                                                                {item.is_custom
-                                                                    ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>
-                                                                    : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Inventory</span>}
+                                                    {req.items.map((item) => {
+                                                        const fulfilled = item.quantity_fulfilled ?? 0;
+                                                        const isRejected = !!item.rejection_reason;
+                                                        return (
+                                                        <tr key={item.id} className={`border-t border-border/40 ${isRejected ? 'bg-red-50/50 dark:bg-red-950/10' : ''}`}>
+                                                            <td className="px-3 py-2">
+                                                                <span className={isRejected ? 'line-through text-muted-foreground' : ''}>{item.particular}</span>
+                                                                {isRejected && (
+                                                                    <p className="mt-0.5 text-xs text-red-600">
+                                                                        Rejected by {item.rejected_by}: {item.rejection_reason}
+                                                                    </p>
+                                                                )}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                {isRejected
+                                                                    ? <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-700">Rejected</span>
+                                                                    : item.is_custom
+                                                                        ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Custom</span>
+                                                                        : <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">Inventory</span>}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                {isRejected
+                                                                    ? <span className="text-muted-foreground">—</span>
+                                                                    : <span className={fulfilled >= item.quantity ? 'font-semibold text-emerald-600' : fulfilled > 0 ? 'text-amber-600' : ''}>{fulfilled}/{item.quantity}</span>}
+                                                            </td>
                                                             <td className="px-3 py-2">{item.unit}</td>
                                                             <td className="px-3 py-2 text-right">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request) : '—'}</td>
                                                             <td className="px-3 py-2 text-right font-medium">{item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request * item.quantity) : '—'}</td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                                 {total > 0 && (
                                                     <tfoot className="border-t-2 border-border">
