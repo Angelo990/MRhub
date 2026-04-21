@@ -57,6 +57,7 @@ export default function CreateRequest() {
         date: today,
         department_id: departmentId,
         purpose: '',
+        is_urgent: false,
         requested_by: requestedBy,
         reviewed_by: '',
         approved_by: '',
@@ -150,6 +151,27 @@ export default function CreateRequest() {
                             <label className="font-semibold" htmlFor="department">Department</label>
                             <input type="text" id="department" value={departmentName} className="mt-1 w-full rounded border p-2" disabled title="Department" placeholder="Department" />
                         </div>
+                    </div>
+
+                    {/* Urgent toggle */}
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, is_urgent: !prev.is_urgent }))}
+                            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                                form.is_urgent
+                                    ? 'border-red-400 bg-red-600 text-white shadow-sm hover:bg-red-700'
+                                    : 'border-border bg-card text-muted-foreground hover:border-red-300 hover:text-red-600'
+                            }`}
+                        >
+                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-extrabold ${
+                                form.is_urgent ? 'animate-bounce bg-white text-red-600' : 'bg-muted text-muted-foreground'
+                            }`}>!</span>
+                            {form.is_urgent ? 'Marked as Urgent' : 'Mark as Urgent'}
+                        </button>
+                        {form.is_urgent && (
+                            <p className="mt-1 text-xs text-red-600">This request will be flagged as urgent. Notifications will include an [URGENT] prefix.</p>
+                        )}
                     </div>
 
                     {/* Items section */}
