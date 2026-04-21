@@ -9,6 +9,8 @@ import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePre
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Settings2 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -337,6 +339,29 @@ export default function Dashboard() {
         .map((id) => chartCards.find((card) => card.id === id))
         .filter((card): card is NonNullable<typeof card> => Boolean(card && visibleCharts[card.id]));
 
+    const cardExportData: Record<string, () => Record<string, string | number>[]> = {
+        'users-by-role': () => usersByRole.map((r) => ({ Role: r.name, Count: r.count })),
+        'requests-by-status': () => requestsByStatus.map((r) => ({ Status: r.name, Count: r.count })),
+        'users-by-department': () => usersByDepartment.map((r) => ({ Department: r.name, Count: r.count })),
+    };
+
+    const printCard = (title: string, rows: Record<string, string | number>[]) => {
+        if (!rows.length) return;
+        const headers = Object.keys(rows[0]);
+        const headerHtml = headers.map((h) => `<th>${h}</th>`).join('');
+        const bodyHtml = rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('');
+        printHtmlDocument(title, `<h1>${title}</h1><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`);
+    };
+
+    const handleCardPrint = (card: { id: string; title: string }) => printCard(card.title, cardExportData[card.id]?.() ?? []);
+    const handleCardExportCsv = (card: { id: string; title: string }) => exportRowsToCsv(cardExportData[card.id]?.() ?? [], card.title.toLowerCase().replace(/\s+/g, '_') + '.csv');
+    const handleCardExportExcel = (card: { id: string; title: string }) => exportRowsToExcel(cardExportData[card.id]?.() ?? [], card.title, card.title.toLowerCase().replace(/\s+/g, '_') + '.xlsx');
+    const handleCardExportPdf = (card: { id: string; title: string }) => {
+        const rows = cardExportData[card.id]?.() ?? [];
+        if (!rows.length) return;
+        exportRowsToPdf(card.title, [], Object.keys(rows[0]), rows.map((r) => Object.values(r) as (string | number)[]), card.title.toLowerCase().replace(/\s+/g, '_') + '.pdf');
+    };
+
     const toggleChartVisibility = (id: string) => {
         setVisibleCharts((current) => ({ ...current, [id]: !current[id] }));
     };
@@ -406,27 +431,27 @@ export default function Dashboard() {
                             High-level visibility into user distribution and operational load.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
-                        <Button type="button" variant="outline" onClick={handlePrintDashboard}>
-                            Print
-                        </Button>
-                        <Button type="button" variant="outline" onClick={handleExportExcel}>
-                            Export Excel
-                        </Button>
-                        <Button type="button" variant="outline" onClick={handleExportCsv}>
-                            Export CSV
-                        </Button>
-                        <Button type="button" variant="outline" onClick={handleExportPdf}>
-                            Export PDF
-                        </Button>
-                        <Button type="button" variant={editMode ? 'default' : 'outline'} onClick={() => setEditMode((current) => !current)}>
-                            {editMode ? 'Done Editing' : 'Edit Dashboard'}
-                        </Button>
-                        {editMode && (
-                            <Button type="button" variant="secondary" onClick={resetLayout}>
-                                Reset Layout
-                            </Button>
-                        )}
+                    <div className="flex flex-wrap items-center gap-2 max-sm:[&>button]:flex-1">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button type="button" variant="outline">Dashboard Actions</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Dashboard</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handlePrintDashboard}>Print Dashboard</DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleExportExcel}>Export Excel</DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleExportCsv}>Export CSV</DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleExportPdf}>Export PDF</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setEditMode((current) => !current)}>
+                                    {editMode ? 'Done Editing' : 'Edit Dashboard'}
+                                </DropdownMenuItem>
+                                {editMode && (
+                                    <DropdownMenuItem onClick={resetLayout}>Reset Layout</DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 
@@ -513,9 +538,29 @@ export default function Dashboard() {
                             onDragEnd={() => setDraggedCardId(null)}
                         >
                             <Card className={`border-border/70 bg-card/80 backdrop-blur ${editMode ? 'cursor-move' : ''} ${draggedCardId === card.id ? 'opacity-70' : ''}`}>
-                                <CardHeader>
-                                    <CardTitle>{card.title}</CardTitle>
-                                    <CardDescription>{card.description}</CardDescription>
+                                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-3">
+                                    <div className="min-w-0 flex-1">
+                                        <CardTitle>{card.title}</CardTitle>
+                                        <CardDescription className="mt-1">{card.description}</CardDescription>
+                                    </div>
+                                    {cardExportData[card.id] && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground">
+                                                    <Settings2 className="h-4 w-4" />
+                                                    <span className="sr-only">Card options</span>
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>{card.title}</DropdownMenuLabel>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => handleCardPrint(card)}>Print</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleCardExportExcel(card)}>Export Excel</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleCardExportCsv(card)}>Export CSV</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleCardExportPdf(card)}>Export PDF</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
                                 </CardHeader>
                                 <CardContent className="min-w-0">{chartsReady ? card.content : <div className="h-40 w-full" />}</CardContent>
                             </Card>
