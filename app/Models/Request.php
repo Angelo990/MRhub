@@ -10,7 +10,7 @@ class Request extends Model
     use HasFactory;
 
     protected $fillable = [
-        'date', 'department_id', 'purpose', 'requested_by', 'reviewed_by', 'approved_by', 'noted_by', 'status', 'locked_at',
+        'date', 'department_id', 'purpose', 'requested_by', 'reviewed_by', 'approved_by', 'noted_by', 'status', 'locked_at', 'is_urgent',
     ];
 
     public function isLocked(): bool
