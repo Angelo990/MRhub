@@ -66,6 +66,7 @@ interface Request {
     purpose: string;
     requested_by: string;
     status: string;
+    is_urgent: boolean;
     items: RequestItem[];
     delivery_receipt?: DeliveryReceipt;
     delivery_receipts?: DeliveryReceipt[];
