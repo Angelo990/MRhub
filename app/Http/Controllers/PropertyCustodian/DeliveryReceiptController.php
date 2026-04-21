@@ -35,13 +35,9 @@ class DeliveryReceiptController extends Controller
             'items.*.quantity_to_release'  => 'required|integer|min:1',
         ]);
 
-        // Load request items fresh with pivot
         $request->load('items');
-
-        // Index request items by id for easy lookup
         $reqItemsById = $request->items->keyBy('id');
 
-        // Validate each line: not rejected, not over-releasing
         foreach ($data['items'] as $line) {
             $reqItem = $reqItemsById->get($line['request_item_id']);
             if (! $reqItem) {
@@ -52,11 +48,10 @@ class DeliveryReceiptController extends Controller
             }
             $remaining = $reqItem->remainingQuantity();
             if ($line['quantity_to_release'] > $remaining) {
-                return response()->json(['error' => "Cannot release {$line['quantity_to_release']} of \"{$reqItem->particular}\" â€” only {$remaining} remaining."], 422);
+                return response()->json(['error' => "Cannot release {$line['quantity_to_release']} of \"{$reqItem->particular}\" — only {$remaining} remaining."], 422);
             }
         }
 
-        // Pre-check inventory availability for non-custom items
         foreach ($data['items'] as $line) {
             $reqItem = $reqItemsById->get($line['request_item_id']);
             if ($reqItem->is_custom) {
@@ -65,15 +60,13 @@ class DeliveryReceiptController extends Controller
             $inventoryItem = Item::find($reqItem->item_id);
             if (! $inventoryItem || $inventoryItem->quantity < $line['quantity_to_release']) {
                 $available = $inventoryItem ? $inventoryItem->quantity : 0;
-                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" â€” requested {$line['quantity_to_release']}, available {$available}."], 422);
+                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" — requested {$line['quantity_to_release']}, available {$available}."], 422);
             }
         }
 
         DB::beginTransaction();
         try {
             $batchTotal = 0.0;
-
-            // Calculate total for this batch
             foreach ($data['items'] as $line) {
                 $reqItem  = $reqItemsById->get($line['request_item_id']);
                 $unitCost = (float) ($reqItem->unit_price_at_request ?? 0);
@@ -107,7 +100,6 @@ class DeliveryReceiptController extends Controller
                     'unit'                 => $reqItem->unit,
                 ]);
 
-                // Decrement inventory only for inventory items (not custom)
                 if (! $reqItem->is_custom && $reqItem->item_id) {
                     $invItem = Item::findOrFail($reqItem->item_id);
                     $invItem->quantity -= $qty;
@@ -128,12 +120,10 @@ class DeliveryReceiptController extends Controller
                     ]);
                 }
 
-                // Increment quantity_fulfilled on the request item
                 $reqItem->increment('quantity_fulfilled', $qty);
             }
 
-            // Determine new request status
-            $request->load('items'); // refresh fulfilled counts
+            $request->load('items');
             if ($request->isFullyFulfilled()) {
                 $request->status = 'Released';
             } else {
@@ -164,93 +154,6 @@ class DeliveryReceiptController extends Controller
             return response()->json([
                 'success' => true,
                 'request' => $request,
-            ]);
-        }
-
-        return Redirect::route('property-custodian.requests.index');
-    }
-}
-
-
-class DeliveryReceiptController extends Controller
-{
-    // Generate delivery receipt for approved request
-    public function store(HttpRequest $httpRequest, Request $request)
-    {
-        $actor = $httpRequest->user();
-
-        // Check inventory for each item
-        DB::beginTransaction();
-        try {
-            foreach ($request->items as $reqItem) {
-                $item = Item::find($reqItem->item_id);
-                if ($item->quantity < $reqItem->quantity) {
-                    throw new \Exception("Not enough stock for item: {$item->name}");
-                }
-            }
-            // Create delivery receipt
-            $receipt = DeliveryReceipt::create([
-                'request_id' => $request->id,
-                'delivery_date' => $httpRequest->input('delivery_date'),
-                'prepared_by' => $httpRequest->input('prepared_by'),
-                'checked_by' => $httpRequest->input('checked_by'),
-                'received_by' => $httpRequest->input('received_by'),
-                'total' => $httpRequest->input('total'),
-                'status' => 'Released',
-            ]);
-            // Create delivery receipt items
-            foreach ($request->items as $reqItem) {
-                $item = Item::findOrFail($reqItem->item_id);
-                $unitCost = (float) $item->unit_price;
-
-                $item->quantity -= $reqItem->quantity;
-                $item->save();
-
-                DeliveryReceiptItem::create([
-                    'delivery_receipt_id' => $receipt->id,
-                    'item_id' => $reqItem->item_id,
-                    'quantity_requested' => $reqItem->quantity,
-                    'quantity_delivered' => $reqItem->quantity, // assuming all delivered
-                    'quantity_undelivered' => 0,
-                    'unit_cost' => $unitCost,
-                    'total' => $unitCost * $reqItem->quantity,
-                    'particular' => $reqItem->particular,
-                    'unit' => $reqItem->unit,
-                ]);
-
-                StockCardEntry::create([
-                    'item_id' => $item->id,
-                    'created_by' => $httpRequest->user()?->id,
-                    'transaction_date' => $receipt->delivery_date,
-                    'movement_type' => 'stock_out',
-                    'reference' => 'Released item',
-                    'party' => $receipt->received_by,
-                    'quantity' => $reqItem->quantity,
-                    'unit_cost' => $unitCost,
-                    'amount' => $unitCost * $reqItem->quantity,
-                    'stock_on_hand' => (int) $item->quantity,
-                    'notes' => "Released via delivery receipt #{$receipt->id}",
-                ]);
-            }
-            $request->status = 'Released';
-            $request->save();
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
-                return response()->json(['error' => $e->getMessage()], 422);
-            }
-
-            return Redirect::back()->withErrors(['error' => $e->getMessage()]);
-        }
-
-        WorkflowNotifier::requestReleased($request->fresh()->loadMissing('department'), $actor);
-
-        if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
-            return response()->json([
-                'success' => true,
-                'request' => $request->fresh()->load(['items', 'department', 'deliveryReceipt.items']),
             ]);
         }
 
