@@ -13,8 +13,8 @@ class RequestApprovalController extends Controller
     // List all requests pending endorsement
     public function index()
     {
-        $requests = Request::with(['items', 'department', 'deliveryReceipt.items'])
-            ->whereIn('status', ['Pending Endorsement', 'Pending Approval', 'Approved', 'Ready for Pickup', 'Released'])
+        $requests = Request::with(['items', 'department', 'deliveryReceipt.items', 'deliveryReceipts.items'])
+            ->whereIn('status', ['Pending Endorsement', 'Pending Approval', 'Approved', 'Partially Released', 'Ready for Pickup', 'Released'])
             ->get();
         $items = \App\Models\Item::all();
         return inertia('PropertyCustodian/Requests', compact('requests', 'items'));
