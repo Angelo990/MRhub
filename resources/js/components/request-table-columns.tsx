@@ -60,6 +60,7 @@ export function createStatusColumn<TData extends BaseRequestTableRow>(): ColumnD
         Approved: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
         'Ready for Pickup': 'border border-violet-200 bg-violet-50 text-violet-700',
         Released: 'border border-cyan-200 bg-cyan-50 text-cyan-700',
+        'Partially Released': 'border border-orange-200 bg-orange-50 text-orange-700',
         Completed: 'border border-slate-200 bg-slate-100 text-slate-700',
         Rejected: 'border border-rose-200 bg-rose-50 text-rose-700',
     };
