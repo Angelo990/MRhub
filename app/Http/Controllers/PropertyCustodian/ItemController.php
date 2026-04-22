@@ -55,29 +55,44 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:20',
             'unit_price' => 'required|numeric|min:0',
-            'quantity_adjustment' => 'nullable|integer|min:0',
+            'quantity_adjustment' => 'nullable|integer',
+            'adjustment_note' => 'nullable|string|max:255',
         ]);
 
         $quantityAdjustment = (int) ($data['quantity_adjustment'] ?? 0);
+        $newQuantity = (int) $item->quantity + $quantityAdjustment;
+
+        if ($newQuantity < 0) {
+            $message = 'Adjustment exceeds available stock. Stock cannot go below zero.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return Redirect::back()->withErrors(['quantity_adjustment' => $message]);
+        }
 
         $item->name = $data['name'];
         $item->unit = $data['unit'];
         $item->unit_price = $data['unit_price'];
-        $item->quantity += $quantityAdjustment;
+        $item->quantity = $newQuantity;
         $item->save();
 
-        if ($quantityAdjustment > 0) {
+        if ($quantityAdjustment !== 0) {
+            $movementType = $quantityAdjustment > 0 ? 'stock_in' : 'stock_out';
+            $adjustmentQuantity = abs($quantityAdjustment);
+
             $this->recordStockCardEntry(
                 item: $item,
                 createdBy: $request->user()?->id,
                 transactionDate: now()->toDateString(),
-                movementType: 'stock_in',
-                reference: 'Manual stock addition',
+                movementType: $movementType,
+                reference: 'Manual stock correction',
                 party: null,
-                quantity: $quantityAdjustment,
+                quantity: $adjustmentQuantity,
                 unitCost: (float) $item->unit_price,
                 stockOnHand: (int) $item->quantity,
-                notes: 'Quantity added through inventory update'
+                notes: $data['adjustment_note'] ?: 'Quantity corrected through inventory update'
             );
         }
 

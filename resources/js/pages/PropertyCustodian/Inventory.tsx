@@ -69,6 +69,7 @@ const Inventory: React.FC = () => {
         unit: 'PCS',
         quantity: '',
         quantity_adjustment: '',
+        adjustment_note: '',
         current_quantity: 0,
         unit_price: '',
     });
@@ -208,7 +209,7 @@ const Inventory: React.FC = () => {
     });
 
     const resetForm = () => {
-        setForm({ id: null, name: '', unit: 'PCS', quantity: '', quantity_adjustment: '', current_quantity: 0, unit_price: '' });
+        setForm({ id: null, name: '', unit: 'PCS', quantity: '', quantity_adjustment: '', adjustment_note: '', current_quantity: 0, unit_price: '' });
         setEditMode(false);
         setError(null);
     };
@@ -223,6 +224,7 @@ const Inventory: React.FC = () => {
                 unit: item.unit,
                 quantity: '',
                 quantity_adjustment: '',
+                adjustment_note: '',
                 current_quantity: item.quantity,
                 unit_price: item.unit_price,
             });
@@ -256,7 +258,10 @@ const Inventory: React.FC = () => {
                 name: form.name,
                 unit: form.unit,
                 ...(editMode
-                    ? { quantity_adjustment: Number(form.quantity_adjustment || 0) }
+                    ? {
+                        quantity_adjustment: Number(form.quantity_adjustment || 0),
+                        adjustment_note: form.adjustment_note.trim() || null,
+                    }
                     : { quantity: Number(form.quantity) }),
                 unit_price: form.unit_price,
             }),
@@ -278,6 +283,9 @@ const Inventory: React.FC = () => {
             setError(err.message || 'Failed to save item.');
         }
     };
+
+    const adjustmentValue = Number(form.quantity_adjustment || 0);
+    const projectedQuantity = form.current_quantity + adjustmentValue;
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Are you sure you want to delete this item?')) {
@@ -439,11 +447,25 @@ const Inventory: React.FC = () => {
                                     <input
                                         type="number"
                                         name="quantity_adjustment"
-                                        placeholder="Add Quantity"
+                                        placeholder="Change Quantity (+ add, - remove)"
                                         value={form.quantity_adjustment}
                                         onChange={handleFormChange}
                                         className="border rounded p-2 dark:bg-gray-800 dark:text-white"
-                                        min={0}
+                                    />
+                                    <div className="text-xs text-muted-foreground">
+                                        Use positive values to add stock and negative values to remove mistaken stock entries.
+                                    </div>
+                                    <div className={`rounded border p-2 text-sm ${projectedQuantity < 0 ? 'border-red-500 text-red-600' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                        Projected stock on hand: {projectedQuantity}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="adjustment_note"
+                                        placeholder="Correction note (optional)"
+                                        value={form.adjustment_note}
+                                        onChange={handleFormChange}
+                                        className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                        maxLength={255}
                                     />
                                 </>
                             ) : (
