@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Department {
     id: number;
@@ -41,6 +42,7 @@ interface FormItem {
     unit: string;
     is_custom: boolean;
     unit_price_at_request: string;
+    [key: string]: string | boolean;
 }
 
 const formatCurrency = (v: number) =>
@@ -66,6 +68,7 @@ export default function CreateRequest() {
     });
     const [itemSearches, setItemSearches] = useState<string[]>(['']);
     const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
+    const [reviewOpen, setReviewOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -126,11 +129,18 @@ export default function CreateRequest() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setReviewOpen(true);
+    };
+
+    const confirmSubmit = async () => {
         setLoading(true);
         setError(null);
         router.post('/department-head/requests', form, {
             onError: (errors) => setError(Object.values(errors).flat().join(' ') || 'Failed to submit request.'),
-            onSuccess: () => router.visit('/department-head/requests'),
+            onSuccess: () => {
+                setReviewOpen(false);
+                router.visit('/department-head/requests');
+            },
             onFinish: () => setLoading(false),
         });
     };
@@ -186,7 +196,7 @@ export default function CreateRequest() {
                         <div className="grid gap-3">
                             {form.items.map((fi, idx) => {
                                 const inv = fi.is_custom ? null : getInventoryItem(fi.item_id);
-                                const isOutOfStock = !fi.is_custom && fi.item_id !== '' && inv !== undefined && inv.quantity <= 0;
+                                const isOutOfStock = !fi.is_custom && fi.item_id !== '' && !!inv && inv.quantity <= 0;
                                 const qty = parseInt(fi.quantity) || 0;
                                 const estValue = lineValue(fi);
                                 const filteredItems = itemsList.filter((i) =>
@@ -358,6 +368,90 @@ export default function CreateRequest() {
                         <Button type="submit" variant="default" disabled={loading} className="w-full sm:w-auto">{loading ? 'Submitting…' : 'Submit Request'}</Button>
                     </div>
                 </form>
+
+                <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+                    <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-5xl flex-col overflow-hidden p-0">
+                        <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
+                            <DialogTitle>Quick Review Before Submit</DialogTitle>
+                        </DialogHeader>
+
+                        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                <div className="rounded border bg-muted/30 p-3">
+                                    <div className="text-xs text-muted-foreground">Date</div>
+                                    <div className="font-semibold">{form.date}</div>
+                                </div>
+                                <div className="rounded border bg-muted/30 p-3">
+                                    <div className="text-xs text-muted-foreground">Department</div>
+                                    <div className="font-semibold">{departmentName}</div>
+                                </div>
+                                <div className="rounded border bg-muted/30 p-3">
+                                    <div className="text-xs text-muted-foreground">Urgency</div>
+                                    <div className={`font-semibold ${form.is_urgent ? 'text-red-600' : ''}`}>
+                                        {form.is_urgent ? 'URGENT' : 'Normal'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded border">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-[720px] text-sm">
+                                        <thead className="bg-muted/40">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">#</th>
+                                                <th className="px-3 py-2 text-left">Type</th>
+                                                <th className="px-3 py-2 text-left">Item</th>
+                                                <th className="px-3 py-2 text-left">Unit</th>
+                                                <th className="px-3 py-2 text-right">Qty</th>
+                                                <th className="px-3 py-2 text-right">Unit Price</th>
+                                                <th className="px-3 py-2 text-right">Est. Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {form.items.map((fi, idx) => {
+                                                const inv = fi.is_custom ? null : getInventoryItem(fi.item_id);
+                                                const unitPrice = fi.is_custom
+                                                    ? parseFloat(fi.unit_price_at_request) || 0
+                                                    : (inv?.unit_price ?? 0);
+
+                                                return (
+                                                    <tr key={`review-${idx}`} className="border-t">
+                                                        <td className="px-3 py-2">{idx + 1}</td>
+                                                        <td className="px-3 py-2">{fi.is_custom ? 'Custom' : 'Inventory'}</td>
+                                                        <td className="px-3 py-2">{fi.particular || '-'}</td>
+                                                        <td className="px-3 py-2">{fi.unit || '-'}</td>
+                                                        <td className="px-3 py-2 text-right">{parseInt(fi.quantity) || 0}</td>
+                                                        <td className="px-3 py-2 text-right">{formatCurrency(unitPrice)}</td>
+                                                        <td className="px-3 py-2 text-right font-semibold">{formatCurrency(lineValue(fi))}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="rounded border bg-muted/30 p-3">
+                                <div className="text-xs text-muted-foreground">Purpose</div>
+                                <div className="font-medium">{form.purpose}</div>
+                            </div>
+
+                            <div className="flex items-center justify-between rounded border border-border bg-muted/30 p-3">
+                                <span className="text-sm text-muted-foreground">Total Estimated Value</span>
+                                <span className="text-lg font-bold">{formatCurrency(totalValue)}</span>
+                            </div>
+                        </div>
+
+                        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/70 bg-background px-4 py-3 sm:px-6">
+                            <Button type="button" variant="outline" onClick={() => setReviewOpen(false)} disabled={loading}>
+                                Back to Edit
+                            </Button>
+                            <Button type="button" variant="default" onClick={confirmSubmit} disabled={loading}>
+                                {loading ? 'Submitting…' : 'Confirm & Submit'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );
