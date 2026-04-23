@@ -56,6 +56,7 @@ interface FormItem {
     unit: string;
     is_custom: boolean;
     unit_price_at_request: string;
+    [key: string]: unknown;
 }
 
 const formatCurrency = (v: number) =>
@@ -158,7 +159,7 @@ export default function EditRequest() {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        router.put(`/department-head/requests/${existingRequest.id}`, form, {
+        router.put(`/department-head/requests/${existingRequest.id}`, form as any, {
             onError: (errors) => setError(Object.values(errors).flat().join(' ') || 'Failed to update request.'),
             onSuccess: () => router.visit('/department-head/requests'),
             onFinish: () => setLoading(false),
@@ -217,7 +218,7 @@ export default function EditRequest() {
                         <div className="grid gap-3">
                             {form.items.map((fi, idx) => {
                                 const inv = fi.is_custom ? null : getInventoryItem(fi.item_id);
-                                const isOutOfStock = !fi.is_custom && fi.item_id !== '' && inv !== undefined && inv.quantity <= 0;
+                                const isOutOfStock = !fi.is_custom && fi.item_id !== '' && (inv?.quantity ?? 0) <= 0;
                                 const qty = parseInt(fi.quantity) || 0;
                                 const estValue = lineValue(fi);
                                 const filteredItems = itemsList.filter((i) =>
