@@ -5,11 +5,12 @@ import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePreset, type DashboardDatePresetId } from '../../lib/dashboard-date-filters';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Settings2 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -59,6 +60,7 @@ export default function Dashboard() {
     const [chartOrder, setChartOrder] = useState(chartIds);
     const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
     const [filterTo, setFilterTo] = useState(filters.to ?? '');
+    const [isDateModalOpen, setIsDateModalOpen] = useState(false);
     const [activePreset, setActivePreset] = useState<DashboardDatePresetId>(detectDashboardDatePreset(filters.from ?? '', filters.to ?? ''));
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
         'requests-by-status': true,
@@ -84,7 +86,7 @@ export default function Dashboard() {
         {
             label: 'Total Requests',
             value: stats.totalRequests,
-            description: 'All requests submitted by this department.',
+            description: 'All requests submitted by your department.',
         },
         {
             label: 'Pending Requests',
@@ -109,7 +111,7 @@ export default function Dashboard() {
         {
             label: 'Estimated Request Value',
             value: formatCurrency(stats.estimatedRequestValue),
-            description: 'Estimated value of the department’s requested items.',
+            description: 'Estimated value of your department\'s requested items.',
         },
     ];
 
@@ -282,7 +284,7 @@ export default function Dashboard() {
         {
             id: 'requests-by-status',
             title: 'Requests by Status',
-            description: 'Current distribution of this department’s requests across the workflow.',
+            description: 'Current distribution of your department\'s requests across the workflow.',
             className: '',
             content: (
                 <div className="h-[340px] w-full">
@@ -305,7 +307,7 @@ export default function Dashboard() {
         {
             id: 'monthly-request-activity',
             title: 'Monthly Request Activity',
-            description: 'Request submission volume for the most recent months in this department.',
+            description: 'Request submission volume for the most recent months in your department.',
             className: '',
             content: (
                 <div className="h-[340px] w-full">
@@ -324,7 +326,7 @@ export default function Dashboard() {
         {
             id: 'most-requested-items',
             title: 'Most Requested Items',
-            description: 'Items most frequently requested by this department.',
+            description: 'Items most frequently requested by your department.',
             className: 'xl:col-span-2',
             content: (
                 <div className="h-[380px] w-full">
@@ -377,7 +379,7 @@ export default function Dashboard() {
                         </div>
                     )) : (
                         <div className="rounded-lg border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                            No recent requests found for this department yet.
+                            No recent requests found for your department yet.
                         </div>
                     )}
                 </div>
@@ -474,16 +476,16 @@ export default function Dashboard() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`${departmentName} Dashboard`} />
+            <Head title={`${departmentName} Analytics Dashboard`} />
             <div className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-x-hidden rounded-xl p-3 sm:p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="space-y-1">
-                        <h1 className="text-2xl font-bold">{departmentName} Dashboard</h1>
+                        <h1 className="text-2xl font-bold">{departmentName} Analytics Dashboard</h1>
                         <p className="text-muted-foreground text-sm">
                             Department-level view of request progress, demand, and overall request value.
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 max-sm:[&>button]:flex-1 max-sm:[&>a]:flex-1">
+                    <div className="hidden flex-wrap items-center gap-2 md:flex">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button type="button" variant="outline">Dashboard Actions</Button>
@@ -510,7 +512,15 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <Card className="border-border/70 bg-card/80 backdrop-blur">
+                <Card className="border-border/70 bg-card/80 backdrop-blur md:hidden">
+                    <CardContent className="p-4">
+                        <Button type="button" className="w-full" onClick={() => setIsDateModalOpen(true)}>
+                            Date Range
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="hidden border-border/70 bg-card/80 backdrop-blur md:block">
                     <CardHeader>
                         <CardTitle>Date Range</CardTitle>
                         <CardDescription>
@@ -539,6 +549,39 @@ export default function Dashboard() {
                         </div>
                     </CardContent>
                 </Card>
+
+                <Dialog open={isDateModalOpen} onOpenChange={setIsDateModalOpen}>
+                    <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg p-0">
+                        <DialogHeader className="border-b border-border/70 px-4 py-3 pr-12">
+                            <DialogTitle>Date Range</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 px-4 py-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                {DASHBOARD_DATE_PRESETS.map((preset) => (
+                                    <Button key={preset.id} type="button" variant={activePreset === preset.id ? 'default' : 'outline'} onClick={() => handlePresetSelect(preset.id)}>
+                                        {preset.label}
+                                    </Button>
+                                ))}
+                            </div>
+                            <label className="flex w-full flex-col gap-2 text-sm">
+                                <span>From</span>
+                                <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                            </label>
+                            <label className="flex w-full flex-col gap-2 text-sm">
+                                <span>To</span>
+                                <input type="date" value={filterTo} onChange={(event) => setFilterTo(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
+                            </label>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <Button type="button" onClick={() => { handleApplyFilters(); setIsDateModalOpen(false); }}>
+                                    Apply
+                                </Button>
+                                <Button type="button" variant="outline" onClick={() => { handleResetFilters(); setIsDateModalOpen(false); }}>
+                                    Reset
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
                 {editMode && (
                     <Card className="border-border/70 bg-card/80 backdrop-blur">
@@ -621,6 +664,40 @@ export default function Dashboard() {
                             </Card>
                         </div>
                     ))}
+                </div>
+
+                <div className="fixed bottom-5 right-5 z-40 md:hidden">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button type="button" size="icon" className="h-12 w-12 rounded-full text-xl shadow-lg">
+                                +
+                                <span className="sr-only">Open quick actions</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" side="top" className="w-56">
+                            <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href="/department-head/requests/create">Create Request</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>More Actions</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onClick={handlePrintDashboard}>Print Analytics</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportExcel}>Export Excel</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportCsv}>Export CSV</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportPdf}>Export PDF</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setEditMode((current) => !current)}>
+                                        {editMode ? 'Done Editing' : 'Edit Dashboard'}
+                                    </DropdownMenuItem>
+                                    {editMode && (
+                                        <DropdownMenuItem onClick={resetLayout}>Reset Layout</DropdownMenuItem>
+                                    )}
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
         </AppLayout>
