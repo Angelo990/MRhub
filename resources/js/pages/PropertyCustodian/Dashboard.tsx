@@ -11,7 +11,8 @@ import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Settings2 } from 'lucide-react';
+import { FileDown, FileSpreadsheet, FileText, Pencil, Printer, RotateCcw, Settings2 } from 'lucide-react';
+import { SpeedDial, type SpeedDialItem } from '@/components/SpeedDial';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -577,6 +578,15 @@ export default function Dashboard() {
         }));
     }, [chartOrder, visibleCharts]);
 
+    const speedDialItems: SpeedDialItem[] = [
+        { icon: <Printer size={18} />, label: 'Print Analytics', onClick: handlePrintDashboard },
+        { icon: <FileSpreadsheet size={18} />, label: 'Export Excel', onClick: handleExportExcel },
+        { icon: <FileText size={18} />, label: 'Export CSV', onClick: handleExportCsv },
+        { icon: <FileDown size={18} />, label: 'Export PDF', onClick: handleExportPdf },
+        { icon: <Pencil size={18} />, label: editMode ? 'Done Editing' : 'Edit Dashboard', onClick: () => setEditMode((v) => !v) },
+        ...(editMode ? [{ icon: <RotateCcw size={18} />, label: 'Reset Layout', onClick: resetLayout }] : []),
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Property Custodian Analytics Dashboard" />
@@ -766,31 +776,7 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                <div className="fixed bottom-5 right-5 z-40 md:hidden">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button type="button" size="icon" className="h-12 w-12 rounded-full text-xl shadow-lg">
-                                +
-                                <span className="sr-only">Open quick actions</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" side="top" className="w-56">
-                            <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handlePrintDashboard}>Print Analytics</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExportExcel}>Export Excel</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExportCsv}>Export CSV</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExportPdf}>Export PDF</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setEditMode((current) => !current)}>
-                                {editMode ? 'Done Editing' : 'Edit Dashboard'}
-                            </DropdownMenuItem>
-                            {editMode && (
-                                <DropdownMenuItem onClick={resetLayout}>Reset Layout</DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                <SpeedDial items={speedDialItems} />
             </div>
         </AppLayout>
     );

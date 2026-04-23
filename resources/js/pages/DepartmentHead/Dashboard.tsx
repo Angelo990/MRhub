@@ -10,8 +10,9 @@ import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePre
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Settings2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { FileDown, FileSpreadsheet, FileText, FilePlus, Pencil, Printer, RotateCcw, Settings2 } from 'lucide-react';
+import { SpeedDial, type SpeedDialItem } from '@/components/SpeedDial';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -429,6 +430,16 @@ export default function Dashboard() {
         });
     };
 
+    const speedDialItems: SpeedDialItem[] = [
+        { icon: <FilePlus size={18} />, label: 'Create Request', onClick: () => router.visit('/department-head/requests/create') },
+        { icon: <Printer size={18} />, label: 'Print Analytics', onClick: handlePrintDashboard },
+        { icon: <FileSpreadsheet size={18} />, label: 'Export Excel', onClick: handleExportExcel },
+        { icon: <FileText size={18} />, label: 'Export CSV', onClick: handleExportCsv },
+        { icon: <FileDown size={18} />, label: 'Export PDF', onClick: handleExportPdf },
+        { icon: <Pencil size={18} />, label: editMode ? 'Done Editing' : 'Edit Dashboard', onClick: () => setEditMode((v) => !v) },
+        ...(editMode ? [{ icon: <RotateCcw size={18} />, label: 'Reset Layout', onClick: resetLayout }] : []),
+    ];
+
     const handleDrop = (targetId: string) => {
         if (!draggedCardId) {
             return;
@@ -666,39 +677,7 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                <div className="fixed bottom-5 right-5 z-40 md:hidden">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button type="button" size="icon" className="h-12 w-12 rounded-full text-xl shadow-lg">
-                                +
-                                <span className="sr-only">Open quick actions</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" side="top" className="w-56">
-                            <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link href="/department-head/requests/create">Create Request</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>More Actions</DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuItem onClick={handlePrintDashboard}>Print Analytics</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleExportExcel}>Export Excel</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleExportCsv}>Export CSV</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleExportPdf}>Export PDF</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setEditMode((current) => !current)}>
-                                        {editMode ? 'Done Editing' : 'Edit Dashboard'}
-                                    </DropdownMenuItem>
-                                    {editMode && (
-                                        <DropdownMenuItem onClick={resetLayout}>Reset Layout</DropdownMenuItem>
-                                    )}
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                <SpeedDial items={speedDialItems} />
             </div>
         </AppLayout>
     );
