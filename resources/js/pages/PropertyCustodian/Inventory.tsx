@@ -62,6 +62,7 @@ const Inventory: React.FC = () => {
     const [tableData, setTableData] = useState(items);
     const [showModal, setShowModal] = useState(false);
     const [historyItemId, setHistoryItemId] = useState<number | null>(null);
+    const [adjustStockItemId, setAdjustStockItemId] = useState<number | null>(null);
     const [editMode, setEditMode] = useState(false);
     const [form, setForm] = useState({
         id: null as number | null,
@@ -75,6 +76,10 @@ const Inventory: React.FC = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [adjustStockForm, setAdjustStockForm] = useState({
+        quantity_adjustment: '',
+        adjustment_note: '',
+    });
     const {
         globalFilter,
         sorting,
@@ -94,6 +99,10 @@ const Inventory: React.FC = () => {
     const selectedHistoryItem = historyItemId === null
         ? null
         : tableData.find((item) => item.id === historyItemId) ?? null;
+
+    const selectedAdjustStockItem = adjustStockItemId === null
+        ? null
+        : tableData.find((item) => item.id === adjustStockItemId) ?? null;
 
     const formatCurrency = (value: string | number) => {
         const numericValue = Number(value);
@@ -310,6 +319,52 @@ const Inventory: React.FC = () => {
         }
     };
 
+    const openAdjustStockModal = (item: Item) => {
+        setError(null);
+        setAdjustStockItemId(item.id);
+        setAdjustStockForm({ quantity_adjustment: '', adjustment_note: '' });
+    };
+
+    const handleAdjustStockSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedAdjustStockItem) {
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`/property-custodian/items/${selectedAdjustStockItem.id}`, {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrf_token,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                name: selectedAdjustStockItem.name,
+                unit: selectedAdjustStockItem.unit,
+                unit_price: selectedAdjustStockItem.unit_price,
+                quantity_adjustment: Number(adjustStockForm.quantity_adjustment || 0),
+                adjustment_note: adjustStockForm.adjustment_note.trim() || null,
+            }),
+        });
+
+        setLoading(false);
+
+        if (res.ok) {
+            const data = (await res.json()) as ItemResponse;
+            setTableData((prev) => prev.map((item) => item.id === data.item.id ? data.item : item));
+            setAdjustStockItemId(null);
+            setAdjustStockForm({ quantity_adjustment: '', adjustment_note: '' });
+        } else {
+            const err = await res.json().catch(() => ({}));
+            setError(err.message || 'Failed to adjust stock.');
+        }
+    };
+
     // DataTable columns
     const columns = useMemo<ColumnDef<Item, any>[]>(() => [
         {
@@ -355,6 +410,7 @@ const Inventory: React.FC = () => {
             header: () => <span>Actions</span>,
             cell: ({ row }) => (
                 <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => openAdjustStockModal(row.original)}>Adjust Stock</Button>
                     <Button size="sm" variant="outline" onClick={() => openModal(row.original)}>Edit</Button>
                     <Button size="sm" variant="destructive" onClick={() => handleDelete(row.original.id)}>Delete</Button>
                 </div>
@@ -578,6 +634,63 @@ const Inventory: React.FC = () => {
                                     </table>
                                 </div>
                             </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={adjustStockItemId !== null} onOpenChange={(open) => !open && setAdjustStockItemId(null)}>
+                    <DialogContent className="max-w-md w-full dark:bg-gray-900 dark:text-white">
+                        <DialogHeader>
+                            <DialogTitle>
+                                Adjust Stock{selectedAdjustStockItem ? `: ${selectedAdjustStockItem.name}` : ''}
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        {selectedAdjustStockItem && (
+                            <form onSubmit={handleAdjustStockSubmit} className="flex flex-col gap-3">
+                                <div className="rounded border bg-gray-50 p-3 text-sm dark:bg-gray-800">
+                                    <div><span className="font-medium">Current stock:</span> {selectedAdjustStockItem.quantity}</div>
+                                    <div><span className="font-medium">Unit:</span> {selectedAdjustStockItem.unit}</div>
+                                    <div><span className="font-medium">Unit price:</span> {formatCurrency(selectedAdjustStockItem.unit_price)}</div>
+                                </div>
+
+                                <input
+                                    type="number"
+                                    name="quantity_adjustment"
+                                    placeholder="Change Quantity (+ add, - remove)"
+                                    value={adjustStockForm.quantity_adjustment}
+                                    onChange={(e) => setAdjustStockForm((prev) => ({ ...prev, quantity_adjustment: e.target.value }))}
+                                    className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                    required
+                                />
+
+                                <div className="text-xs text-muted-foreground">
+                                    Use positive values to add stock and negative values to remove mistakenly added stock.
+                                </div>
+
+                                <div className="rounded border bg-gray-50 p-2 text-sm dark:bg-gray-800">
+                                    Projected stock on hand: {(selectedAdjustStockItem.quantity + Number(adjustStockForm.quantity_adjustment || 0))}
+                                </div>
+
+                                <input
+                                    type="text"
+                                    name="adjustment_note"
+                                    placeholder="Correction note (optional)"
+                                    value={adjustStockForm.adjustment_note}
+                                    onChange={(e) => setAdjustStockForm((prev) => ({ ...prev, adjustment_note: e.target.value }))}
+                                    className="border rounded p-2 dark:bg-gray-800 dark:text-white"
+                                    maxLength={255}
+                                />
+
+                                <div className="flex justify-end gap-2 pt-1">
+                                    <Button type="button" variant="outline" onClick={() => setAdjustStockItemId(null)} disabled={loading}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" variant="default" disabled={loading}>
+                                        {loading ? 'Saving...' : 'Apply Adjustment'}
+                                    </Button>
+                                </div>
+                            </form>
                         )}
                     </DialogContent>
                 </Dialog>

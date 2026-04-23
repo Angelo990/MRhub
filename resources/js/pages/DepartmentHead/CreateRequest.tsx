@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,7 @@ export default function CreateRequest() {
     const [itemSearches, setItemSearches] = useState<string[]>(['']);
     const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
     const [reviewOpen, setReviewOpen] = useState(false);
+    const [reviewEditIndex, setReviewEditIndex] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -145,6 +146,33 @@ export default function CreateRequest() {
         });
     };
 
+    useEffect(() => {
+        if (reviewOpen || reviewEditIndex === null) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            const row = document.getElementById(`request-item-row-${reviewEditIndex}`);
+            row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            const firstInput = row?.querySelector('input:not([type="hidden"]), select, textarea') as
+                | HTMLInputElement
+                | HTMLSelectElement
+                | HTMLTextAreaElement
+                | null;
+
+            firstInput?.focus();
+            setReviewEditIndex(null);
+        }, 120);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [reviewOpen, reviewEditIndex]);
+
+    const jumpToEditItem = (idx: number) => {
+        setReviewEditIndex(idx);
+        setReviewOpen(false);
+    };
+
     return (
         <AppLayout>
             <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
@@ -204,7 +232,7 @@ export default function CreateRequest() {
                                 );
 
                                 return (
-                                    <div key={idx} className={`rounded-lg border p-3 ${isOutOfStock ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-border bg-card'}`}>
+                                    <div id={`request-item-row-${idx}`} key={idx} className={`rounded-lg border p-3 ${isOutOfStock ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-border bg-card'}`}>
                                         {/* Row header */}
                                         <div className="mb-2 flex items-center justify-between">
                                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${fi.is_custom ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'}`}>
@@ -405,6 +433,7 @@ export default function CreateRequest() {
                                                 <th className="px-3 py-2 text-right">Qty</th>
                                                 <th className="px-3 py-2 text-right">Unit Price</th>
                                                 <th className="px-3 py-2 text-right">Est. Total</th>
+                                                <th className="px-3 py-2 text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -423,6 +452,11 @@ export default function CreateRequest() {
                                                         <td className="px-3 py-2 text-right">{parseInt(fi.quantity) || 0}</td>
                                                         <td className="px-3 py-2 text-right">{formatCurrency(unitPrice)}</td>
                                                         <td className="px-3 py-2 text-right font-semibold">{formatCurrency(lineValue(fi))}</td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            <Button type="button" size="sm" variant="outline" onClick={() => jumpToEditItem(idx)}>
+                                                                Edit
+                                                            </Button>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
