@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface SpeedDialItem {
     icon: React.ReactNode;
@@ -54,24 +53,20 @@ export function SpeedDial({ items }: SpeedDialProps) {
                         pointerEvents: open ? 'auto' : 'none',
                     }}
                 >
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <button
-                                type="button"
-                                className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
-                                onClick={() => {
-                                    item.onClick();
-                                    setOpen(false);
-                                }}
-                                aria-label={item.label}
-                            >
-                                {item.icon}
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" sideOffset={8}>
-                            {item.label}
-                        </TooltipContent>
-                    </Tooltip>
+                    <button
+                        type="button"
+                        className="flex items-center gap-3 rounded-full bg-primary px-4 py-2 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
+                        onClick={() => {
+                            item.onClick();
+                            setOpen(false);
+                        }}
+                        aria-label={item.label}
+                    >
+                        <span className="flex h-6 w-6 items-center justify-center">
+                            {item.icon}
+                        </span>
+                        <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                    </button>
                 </div>
             ))}
 
