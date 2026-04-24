@@ -17,17 +17,21 @@ export function SpeedDial({ items }: SpeedDialProps) {
 
     useEffect(() => {
         if (!open) return;
-        function onOutsideClick(e: MouseEvent) {
+        function onOutsideClick(e: MouseEvent | TouchEvent) {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setOpen(false);
             }
         }
         document.addEventListener('mousedown', onOutsideClick);
-        return () => document.removeEventListener('mousedown', onOutsideClick);
+        document.addEventListener('touchstart', onOutsideClick, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', onOutsideClick);
+            document.removeEventListener('touchstart', onOutsideClick);
+        };
     }, [open]);
 
     return (
-        <div ref={containerRef} className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 md:hidden">
+        <div ref={containerRef} className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-[calc(1.25rem+env(safe-area-inset-right))] z-40 flex flex-col items-end gap-3 md:hidden">
             {/* Invisible backdrop to close on outside tap */}
             {open && (
                 <button
@@ -55,7 +59,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
                 >
                     <button
                         type="button"
-                        className="flex items-center gap-3 rounded-full bg-primary px-4 py-2 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
+                        className="flex items-center gap-3 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
                         onClick={() => {
                             item.onClick();
                             setOpen(false);

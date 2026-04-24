@@ -11,7 +11,7 @@ import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { FileDown, FileSpreadsheet, FileText, Pencil, Printer, RotateCcw, Settings2 } from 'lucide-react';
+import { FileDown, FileSpreadsheet, FileText, Pencil, Printer, RotateCcw, Settings2, Download, ChevronUp, ChevronDown } from 'lucide-react';
 import { SpeedDial, type SpeedDialItem } from '@/components/SpeedDial';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,7 +65,18 @@ export default function Dashboard() {
     const [filterFrom, setFilterFrom] = useState(filters.from ?? '');
     const [filterTo, setFilterTo] = useState(filters.to ?? '');
     const [isDateModalOpen, setIsDateModalOpen] = useState(false);
-    const [activePreset, setActivePreset] = useState<DashboardDatePresetId>(detectDashboardDatePreset(filters.from ?? '', filters.to ?? ''));
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const activePreset = useMemo(() => detectDashboardDatePreset(filterFrom, filterTo), [filterFrom, filterTo]);
+
+    const dateRangeLabel = useMemo(() => {
+        const preset = DASHBOARD_DATE_PRESETS.find(p => p.id === activePreset);
+        if (preset) return preset.label;
+        if (filterFrom || filterTo) {
+            const fmt = (d: string) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '…';
+            return `${fmt(filterFrom)} – ${fmt(filterTo)}`;
+        }
+        return 'Date Range';
+    }, [activePreset, filterFrom, filterTo]);
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
         'request-pipeline': true,
         'stock-movement': true,
@@ -213,7 +224,6 @@ export default function Dashboard() {
     useEffect(() => {
         setFilterFrom(filters.from ?? '');
         setFilterTo(filters.to ?? '');
-        setActivePreset(detectDashboardDatePreset(filters.from ?? '', filters.to ?? ''));
     }, [filters.from, filters.to]);
 
     useEffect(() => {
@@ -239,7 +249,6 @@ export default function Dashboard() {
 
             setFilterFrom(storedFrom);
             setFilterTo(storedTo);
-            setActivePreset(detectDashboardDatePreset(storedFrom, storedTo));
             router.get(dashboard.propertyCustodian().url, {
                 ...(storedFrom ? { from: storedFrom } : {}),
                 ...(storedTo ? { to: storedTo } : {}),
@@ -443,7 +452,7 @@ export default function Dashboard() {
                         <BarChart data={mostRequestedItems} layout="vertical" margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
                             <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
-                            <YAxis dataKey="name" type="category" width={180} tickLine={false} axisLine={false} />
+                            <YAxis dataKey="name" type="category" width={120} tickLine={false} axisLine={false} />
                             <Tooltip cursor={{ fill: 'rgba(15, 23, 42, 0.06)' }} />
                             <Bar dataKey="count" radius={[0, 8, 8, 0]} fill="#7c3aed" />
                         </BarChart>
@@ -511,7 +520,6 @@ export default function Dashboard() {
     };
 
     const handleApplyFilters = () => {
-        setActivePreset(detectDashboardDatePreset(filterFrom, filterTo));
         router.get(dashboard.propertyCustodian().url, {
             ...(filterFrom ? { from: filterFrom } : {}),
             ...(filterTo ? { to: filterTo } : {}),
@@ -525,7 +533,6 @@ export default function Dashboard() {
     const handleResetFilters = () => {
         setFilterFrom('');
         setFilterTo('');
-        setActivePreset('custom');
         router.get(dashboard.propertyCustodian().url, {}, {
             preserveState: true,
             preserveScroll: true,
@@ -538,7 +545,6 @@ export default function Dashboard() {
 
         setFilterFrom(range.from);
         setFilterTo(range.to);
-        setActivePreset(presetId);
         router.get(dashboard.propertyCustodian().url, range, {
             preserveState: true,
             preserveScroll: true,
@@ -578,11 +584,21 @@ export default function Dashboard() {
         }));
     }, [chartOrder, visibleCharts]);
 
+    const moveCard = (id: string, dir: -1 | 1) => {
+        setChartOrder(prev => {
+            const idx = prev.indexOf(id);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const swapIdx = idx + dir;
+            if (swapIdx < 0 || swapIdx >= next.length) return prev;
+            [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+            return next;
+        });
+    };
+
     const speedDialItems: SpeedDialItem[] = [
         { icon: <Printer size={18} />, label: 'Print Analytics', onClick: handlePrintDashboard },
-        { icon: <FileSpreadsheet size={18} />, label: 'Export Excel', onClick: handleExportExcel },
-        { icon: <FileText size={18} />, label: 'Export CSV', onClick: handleExportCsv },
-        { icon: <FileDown size={18} />, label: 'Export PDF', onClick: handleExportPdf },
+        { icon: <Download size={18} />, label: 'Export Data', onClick: () => setIsExportOpen(true) },
         { icon: <Pencil size={18} />, label: editMode ? 'Done Editing' : 'Edit Dashboard', onClick: () => setEditMode((v) => !v) },
         ...(editMode ? [{ icon: <RotateCcw size={18} />, label: 'Reset Layout', onClick: resetLayout }] : []),
     ];
@@ -625,7 +641,7 @@ export default function Dashboard() {
                 <Card className="border-border/70 bg-card/80 backdrop-blur md:hidden">
                     <CardContent className="p-4">
                         <Button type="button" className="w-full" onClick={() => setIsDateModalOpen(true)}>
-                            Date Range
+                            {dateRangeLabel}
                         </Button>
                     </CardContent>
                 </Card>
@@ -751,11 +767,21 @@ export default function Dashboard() {
                                         <CardTitle>{card.title}</CardTitle>
                                         <CardDescription className="mt-1">{card.description}</CardDescription>
                                     </div>
+                                    {editMode && (
+                                        <div className="flex flex-col gap-0.5 md:hidden">
+                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCard(card.id, -1)} aria-label="Move card up">
+                                                <ChevronUp size={14} />
+                                            </Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCard(card.id, 1)} aria-label="Move card down">
+                                                <ChevronDown size={14} />
+                                            </Button>
+                                        </div>
+                                    )}
                                     {cardExportData[card.id] && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground">
-                                                    <Settings2 className="h-4 w-4" />
+                                                <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground md:h-8 md:w-8">
+                                                    <Settings2 className="h-5 w-5 md:h-4 md:w-4" />
                                                     <span className="sr-only">Card options</span>
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -777,6 +803,26 @@ export default function Dashboard() {
                 </div>
 
                 <SpeedDial items={speedDialItems} />
+
+                {/* Export Data picker dialog (mobile FAB) */}
+                <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+                    <DialogContent className="w-[calc(100vw-1.5rem)] max-w-xs p-0">
+                        <DialogHeader className="border-b border-border/70 px-4 py-3">
+                            <DialogTitle>Export Data</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-2 px-4 py-4">
+                            <Button type="button" variant="outline" className="justify-start gap-3" onClick={() => { handleExportExcel(); setIsExportOpen(false); }}>
+                                <FileSpreadsheet size={16} /> Export Excel
+                            </Button>
+                            <Button type="button" variant="outline" className="justify-start gap-3" onClick={() => { handleExportCsv(); setIsExportOpen(false); }}>
+                                <FileText size={16} /> Export CSV
+                            </Button>
+                            <Button type="button" variant="outline" className="justify-start gap-3" onClick={() => { handleExportPdf(); setIsExportOpen(false); }}>
+                                <FileDown size={16} /> Export PDF
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );
