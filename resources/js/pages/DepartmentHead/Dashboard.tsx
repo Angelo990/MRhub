@@ -22,7 +22,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, recentRequests, filters } = usePage<SharedData & {
+    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, monthlySpending, recentRequests, filters } = usePage<SharedData & {
         departmentName: string;
         stats: {
             totalRequests: number;
@@ -35,6 +35,7 @@ export default function Dashboard() {
         requestsByStatus: Array<{ name: string; count: number }>;
         mostRequestedItems: Array<{ name: string; count: number }>;
         monthlyRequests: Array<{ name: string; count: number }>;
+        monthlySpending: Array<{ name: string; total: number }>;
         recentRequests: Array<{
             id: number;
             date: string;
@@ -52,7 +53,7 @@ export default function Dashboard() {
     }>().props;
 
     const chartColors = ['#14532d', '#1d4ed8', '#0f766e', '#7c3aed', '#be123c', '#c2410c'];
-    const chartIds = ['requests-by-status', 'monthly-request-activity', 'most-requested-items', 'recent-requests'];
+    const chartIds = ['expenditure-by-month', 'requests-by-status', 'monthly-request-activity', 'most-requested-items', 'recent-requests'];
     const storageKey = 'dashboard:department-head:layout';
     const filterStorageKey = 'dashboard:department-head:filters';
     const [editMode, setEditMode] = useState(false);
@@ -75,6 +76,7 @@ export default function Dashboard() {
         return 'Date Range';
     }, [activePreset, filterFrom, filterTo]);
     const [visibleCharts, setVisibleCharts] = useState<Record<string, boolean>>({
+        'expenditure-by-month': true,
         'requests-by-status': true,
         'monthly-request-activity': true,
         'most-requested-items': true,
@@ -292,6 +294,32 @@ export default function Dashboard() {
 
     const chartCards = useMemo(() => [
         {
+            id: 'expenditure-by-month',
+            title: 'Monthly Total Spending',
+            description: 'How much your department spent on requested items each month.',
+            className: '',
+            content: (
+                <div className="h-[340px] w-full">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <BarChart data={monthlySpending} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+                            <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                            <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `PHP ${Number(value).toLocaleString()}`} />
+                            <Tooltip
+                                cursor={{ fill: 'rgba(15, 23, 42, 0.06)' }}
+                                formatter={(value) => formatCurrency(Number(value ?? 0))}
+                            />
+                            <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+                                {monthlySpending.map((entry, index) => (
+                                    <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            ),
+        },
+        {
             id: 'requests-by-status',
             title: 'Requests by Status',
             description: 'Current distribution of your department\'s requests across the workflow.',
@@ -395,13 +423,14 @@ export default function Dashboard() {
                 </div>
             ),
         },
-    ], [monthlyRequests, mostRequestedItems, recentRequests, requestsByStatus]);
+    ], [chartColors, monthlyRequests, monthlySpending, mostRequestedItems, recentRequests, requestsByStatus]);
 
     const orderedVisibleCards = chartOrder
         .map((id) => chartCards.find((card) => card.id === id))
         .filter((card): card is NonNullable<typeof card> => Boolean(card && visibleCharts[card.id]));
 
     const cardExportData: Record<string, () => Record<string, string | number>[]> = {
+        'expenditure-by-month': () => monthlySpending.map((r) => ({ Month: r.name, Spending: r.total })),
         'requests-by-status': () => requestsByStatus.map((r) => ({ Status: r.name, Count: r.count })),
         'monthly-request-activity': () => monthlyRequests.map((r) => ({ Month: r.name, Count: r.count })),
         'most-requested-items': () => mostRequestedItems.map((r) => ({ Item: r.name, Count: r.count })),
@@ -432,6 +461,7 @@ export default function Dashboard() {
     const resetLayout = () => {
         setChartOrder(chartIds);
         setVisibleCharts({
+            'expenditure-by-month': true,
             'requests-by-status': true,
             'monthly-request-activity': true,
             'most-requested-items': true,

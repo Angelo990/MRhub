@@ -69,6 +69,24 @@ class DashboardController extends Controller
             ])
             ->values();
 
+        $monthlySpending = DB::table('request_items')
+            ->join('requests', 'requests.id', '=', 'request_items.request_id')
+            ->leftJoin('items', 'items.id', '=', 'request_items.item_id')
+            ->where('requests.department_id', $departmentId)
+            ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
+            ->selectRaw("DATE_FORMAT(requests.date, '%Y-%m') as month_key")
+            ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, items.unit_price, 0)), 0) as total_spending')
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->limit(6)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->month_key,
+                'total' => (float) $row->total_spending,
+            ])
+            ->values();
+
         $requestValue = (float) DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->join('items', 'items.id', '=', 'request_items.item_id')
@@ -119,6 +137,7 @@ class DashboardController extends Controller
             'requestsByStatus' => $requestsByStatus,
             'mostRequestedItems' => $mostRequestedItems,
             'monthlyRequests' => $monthlyRequests,
+            'monthlySpending' => $monthlySpending,
             'recentRequests' => $recentRequests,
             'filters' => [
                 'from' => $from,
