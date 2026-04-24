@@ -15,6 +15,7 @@ class DepartmentSeeder extends Seeder
             'CBA',
             'COE',
             'CAS',
+            'CCJE',
         ];
         foreach ($departments as $name) {
             Department::firstOrCreate(['name' => $name]);
