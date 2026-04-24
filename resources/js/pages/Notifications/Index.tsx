@@ -144,7 +144,7 @@ export default function NotificationsIndex() {
                                             {notification.actionUrl ? (
                                                 <Link
                                                     href={notification.actionUrl}
-                                                    className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition hover:bg-accent"
+                                                    className="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium transition hover:bg-accent"
                                                     onClick={() => {
                                                         if (!notification.readAt) {
                                                             void handleMarkRead(notification.id);

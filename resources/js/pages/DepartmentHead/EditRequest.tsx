@@ -65,22 +65,6 @@ const formatCurrency = (v: number) =>
 export default function EditRequest() {
     const { request: existingRequest, items } = usePage<PageProps>().props;
 
-    // Guard: if locked, surface a message (backend also 403s PUT requests)
-    if (existingRequest.locked_at) {
-        return (
-            <AppLayout>
-                <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-                    <div className="rounded border border-amber-300 bg-amber-50 p-4 text-amber-800">
-                        This request has been endorsed and can no longer be edited.
-                    </div>
-                    <Button className="mt-4" variant="outline" onClick={() => router.visit('/department-head/requests')}>
-                        Back to My Requests
-                    </Button>
-                </div>
-            </AppLayout>
-        );
-    }
-
     const itemsList: Item[] = items || [];
 
     const getInventoryItem = (itemId: string) => itemsList.find((i) => i.id === Number(itemId));
@@ -106,6 +90,22 @@ export default function EditRequest() {
     const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Guard: if locked, surface a message (backend also 403s PUT requests)
+    if (existingRequest.locked_at) {
+        return (
+            <AppLayout>
+                <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
+                    <div className="rounded border border-amber-300 bg-amber-50 p-4 text-amber-800">
+                        This request has been endorsed and can no longer be edited.
+                    </div>
+                    <Button className="mt-4" variant="outline" onClick={() => router.visit('/department-head/requests')}>
+                        Back to My Requests
+                    </Button>
+                </div>
+            </AppLayout>
+        );
+    }
 
     const lineValue = (fi: FormItem): number => {
         const qty = parseInt(fi.quantity) || 0;
@@ -159,7 +159,7 @@ export default function EditRequest() {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        router.put(`/department-head/requests/${existingRequest.id}`, form as any, {
+        router.put(`/department-head/requests/${existingRequest.id}`, form as Record<string, unknown>, {
             onError: (errors) => setError(Object.values(errors).flat().join(' ') || 'Failed to update request.'),
             onSuccess: () => router.visit('/department-head/requests'),
             onFinish: () => setLoading(false),

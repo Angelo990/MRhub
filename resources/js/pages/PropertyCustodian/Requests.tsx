@@ -90,7 +90,7 @@ interface RequestResponse {
 }
 
 export default function Requests() {
-    const { requests, items, csrf_token } = usePage<SharedData & PageProps>().props;
+    const { requests, csrf_token } = usePage<SharedData & PageProps>().props;
     const [tableData, setTableData] = useState(requests);
     const [openReceipt, setOpenReceipt] = useState<number | null>(null);
     const [viewItemsRequest, setViewItemsRequest] = useState<number | null>(null);
@@ -161,11 +161,6 @@ export default function Requests() {
         } finally {
             setProcessingId(null);
         }
-    };
-    const itemsList: Item[] = items || [];
-    const getUnitPrice = (itemId: number) => {
-        const found = itemsList.find(i => i.id === itemId);
-        return found ? found.unit_price : 0;
     };
     const requestTotalValue = (req: { items: RequestItem[] }): number =>
         req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);

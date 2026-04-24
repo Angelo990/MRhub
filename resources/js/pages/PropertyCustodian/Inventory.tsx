@@ -366,7 +366,7 @@ const Inventory: React.FC = () => {
     };
 
     // DataTable columns
-    const columns = useMemo<ColumnDef<Item, any>[]>(() => [
+    const columns = useMemo<ColumnDef<Item>[]>(() => [
         {
             accessorKey: 'name',
             header: () => (
@@ -380,6 +380,7 @@ const Inventory: React.FC = () => {
                 <span>Unit</span>
             ),
             cell: info => info.getValue(),
+            meta: { className: 'hidden sm:table-cell' },
         },
         {
             accessorKey: 'quantity',
@@ -394,6 +395,7 @@ const Inventory: React.FC = () => {
                 <span>Unit Price</span>
             ),
             cell: info => formatCurrency(String(info.getValue())),
+            meta: { className: 'hidden sm:table-cell' },
         },
         {
             id: 'stock_card_entries',

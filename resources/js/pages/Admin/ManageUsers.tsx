@@ -271,7 +271,7 @@ const ManageUser: React.FC = () => {
 	};
 
 	// DataTable columns
-	const columns = useMemo<ColumnDef<User, any>[]>(() => [
+	const columns = useMemo<ColumnDef<User>[]>(() => [
 		{
 			accessorKey: 'name',
 			header: () => <span>Name</span>,
@@ -281,6 +281,7 @@ const ManageUser: React.FC = () => {
 			accessorKey: 'email',
 			header: () => <span>Email</span>,
 			cell: info => info.getValue(),
+			meta: { className: 'hidden md:table-cell' },
 		},
 		{
 			id: 'roles',
@@ -303,6 +304,7 @@ const ManageUser: React.FC = () => {
 				row.original.department ? row.original.department.name : <span className="text-gray-400">-</span>
 			),
 			enableSorting: false,
+			meta: { className: 'hidden sm:table-cell' },
 		},
 		{
 			id: 'actions',
