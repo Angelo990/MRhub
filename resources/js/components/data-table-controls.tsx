@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { useId } from 'react';
 
 interface DataTableToolbarProps {
@@ -73,14 +74,26 @@ export function DataTablePagination({
 }: DataTablePaginationProps) {
     return (
         <div className="mt-2 flex flex-col gap-3 text-sm text-gray-600 dark:text-gray-300 md:flex-row md:items-center md:justify-between">
-            <div>
-                Showing {showingFrom} to {showingTo} of {totalRows} {itemLabel}
+            <div className="text-center md:text-left">
+                Showing {showingFrom}–{showingTo} of {totalRows} {itemLabel}
             </div>
-            <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={onFirst} disabled={!canPrevious}>First</Button>
-                <Button size="sm" variant="outline" onClick={onPrev} disabled={!canPrevious}>Prev</Button>
-                <Button size="sm" variant="outline" onClick={onNext} disabled={!canNext}>Next</Button>
-                <Button size="sm" variant="outline" onClick={onLast} disabled={!canNext}>Last</Button>
+            <div className="flex flex-wrap justify-center gap-2 md:justify-end">
+                <Button size="sm" variant="outline" onClick={onFirst} disabled={!canPrevious} aria-label="First page">
+                    <ChevronsLeft className="h-4 w-4" />
+                    <span className="sr-only sm:not-sr-only sm:ml-1">First</span>
+                </Button>
+                <Button size="sm" variant="outline" onClick={onPrev} disabled={!canPrevious} aria-label="Previous page">
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only sm:not-sr-only sm:ml-1">Prev</span>
+                </Button>
+                <Button size="sm" variant="outline" onClick={onNext} disabled={!canNext} aria-label="Next page">
+                    <span className="sr-only sm:not-sr-only sm:mr-1">Next</span>
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={onLast} disabled={!canNext} aria-label="Last page">
+                    <span className="sr-only sm:not-sr-only sm:mr-1">Last</span>
+                    <ChevronsRight className="h-4 w-4" />
+                </Button>
             </div>
         </div>
     );

@@ -5,7 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Users, ClipboardList, ShieldCheck, Briefcase } from 'lucide-react';
+import { LayoutGrid, Users, ClipboardList, ShieldCheck } from 'lucide-react';
 import AppLogo from './app-logo';
 
 function getRoleNavItems(role: string): NavItem[] {
