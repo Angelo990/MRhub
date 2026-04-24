@@ -5,11 +5,11 @@ import {
     createActionsColumn,
     createDateColumn,
     createDepartmentColumn,
-    createItemsColumn,
     createPurposeColumn,
     createRequestedByColumn,
     createStatusColumn,
 } from '@/components/request-table-columns';
+import { createCompactItemsColumn, RequestItemsDialog } from '@/components/request-items-view';
 import { DataTableShell } from '@/components/data-table-shell';
 import { useDataTable } from '@/hooks/use-data-table';
 import { usePage, router } from '@inertiajs/react';
@@ -77,9 +77,13 @@ export default function Requests() {
     const { requests, csrf_token } = usePage<SharedData & PageProps>().props;
     const [tableData, setTableData] = useState(requests);
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [viewItemsRequest, setViewItemsRequest] = useState<number | null>(null);
     const [reviewRequest, setReviewRequest] = useState<Request | null>(null);
     const [rejectionRows, setRejectionRows] = useState<RejectionRow[]>([]);
     const [reviewError, setReviewError] = useState<string | null>(null);
+
+    const requestTotalValue = (req: Request): number =>
+        req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
 
     const {
         globalFilter,
@@ -291,9 +295,15 @@ export default function Requests() {
         createPurposeColumn<Request>(),
         createRequestedByColumn<Request>(),
         createStatusColumn<Request>(),
-        createItemsColumn<Request>(),
+        createCompactItemsColumn<Request>({
+            formatCurrency,
+            getTotalValue: requestTotalValue,
+        }),
         createActionsColumn<Request>((req) => (
             <div className="flex flex-wrap gap-2 min-[391px]:min-w-[180px]">
+                <Button size="sm" variant="outline" onClick={() => setViewItemsRequest(req.id)}>
+                    View Items
+                </Button>
                 <Button size="sm" variant="default" onClick={() => openReview(req)} disabled={processingId === req.id}>
                     Review & Approve
                 </Button>
@@ -302,7 +312,7 @@ export default function Requests() {
                 </Button>
             </div>
         )),
-    ], [handleReject, processingId]);
+    ], [processingId]);
 
     const table = useReactTable({
         data: tableData,
@@ -350,6 +360,16 @@ export default function Requests() {
                     onLast={() => table.setPageIndex(totalPages - 1)}
                     canPrevious={table.getCanPreviousPage()}
                     canNext={table.getCanNextPage()}
+                />
+
+                <RequestItemsDialog
+                    request={tableData.find((r) => r.id === viewItemsRequest) ?? null}
+                    open={!!viewItemsRequest}
+                    onOpenChange={(open) => {
+                        if (!open) setViewItemsRequest(null);
+                    }}
+                    formatCurrency={formatCurrency}
+                    getTotalValue={requestTotalValue}
                 />
 
                 {/* Item Review & Approve Dialog */}
