@@ -100,32 +100,32 @@ export default function Dashboard() {
         {
             label: 'Total Requests',
             value: stats.totalRequests,
-            description: 'All requests submitted by your department.',
+            description: 'Department requests.',
         },
         {
             label: 'Pending Requests',
             value: stats.pendingRequests,
-            description: 'Requests still waiting for endorsement or finance approval.',
+            description: 'Awaiting review.',
         },
         {
             label: 'Approved / Released',
             value: stats.approvedRequests,
-            description: 'Requests already approved or released for pickup.',
+            description: 'Approved or released.',
         },
         {
             label: 'Completed Requests',
             value: stats.completedRequests,
-            description: 'Requests fully received and confirmed by the department.',
+            description: 'Completed and received.',
         },
         {
             label: 'Rejected Requests',
             value: stats.rejectedRequests,
-            description: 'Requests rejected during the approval process.',
+            description: 'Rejected requests.',
         },
         {
             label: 'Estimated Request Value',
             value: formatCurrency(stats.estimatedRequestValue),
-            description: 'Estimated value of your department\'s requested items.',
+            description: 'Estimated request spend.',
         },
     ];
 
@@ -663,14 +663,14 @@ export default function Dashboard() {
                     </Card>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {metricCards.map((card) => (
                         <Card key={card.label} className="border-border/70 bg-card/80 backdrop-blur">
                             <CardHeader className="gap-2">
                                 <CardDescription>{card.label}</CardDescription>
-                                <CardTitle className="break-words text-2xl sm:text-3xl">{card.value}</CardTitle>
+                                <CardTitle className="break-words text-xl sm:text-2xl lg:text-3xl">{card.value}</CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-0 text-sm text-muted-foreground">
+                            <CardContent className="hidden pt-0 text-sm text-muted-foreground sm:block">
                                 {card.description}
                             </CardContent>
                         </Card>

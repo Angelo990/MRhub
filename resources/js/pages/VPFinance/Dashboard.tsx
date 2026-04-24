@@ -86,37 +86,37 @@ export default function Dashboard() {
         {
             label: 'Total Request Value',
             value: formatCurrency(stats.totalRequestValue),
-            description: 'Estimated value of all requested items across the system.',
+            description: 'Total estimated spend.',
         },
         {
             label: 'Pending Approval Value',
             value: formatCurrency(stats.pendingApprovalValue),
-            description: 'Request value currently waiting on VP Finance action.',
+            description: 'Value awaiting approval.',
         },
         {
             label: 'Approved Value',
             value: formatCurrency(stats.approvedValue),
-            description: 'Value already approved for release or already fulfilled.',
+            description: 'Approved or fulfilled value.',
         },
         {
             label: 'Released Spending',
             value: formatCurrency(stats.releasedValue),
-            description: 'Actual released amount based on generated delivery receipts.',
+            description: 'Actual released amount.',
         },
         {
             label: 'Average Request Value',
             value: formatCurrency(stats.averageRequestValue),
-            description: 'Average estimated cost per request record.',
+            description: 'Avg value per request.',
         },
         {
             label: 'Pending Approvals',
             value: stats.pendingApprovals.toString(),
-            description: 'Requests still waiting for finance approval or rejection.',
+            description: 'Awaiting finance action.',
         },
         {
             label: 'Highest Pending Request',
             value: formatCurrency(stats.highestPendingRequestValue),
-            description: `${stats.highestPendingRequestDepartment} currently has the largest pending approval exposure.`,
+            description: `${stats.highestPendingRequestDepartment} max pending exposure.`,
         },
     ];
 
@@ -700,14 +700,14 @@ export default function Dashboard() {
                     </Card>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {metricCards.map((card) => (
                         <Card key={card.label} className="border-border/70 bg-card/80 backdrop-blur">
                             <CardHeader className="gap-2">
                                 <CardDescription>{card.label}</CardDescription>
-                                <CardTitle className="break-words text-2xl sm:text-3xl">{card.value}</CardTitle>
+                                <CardTitle className="break-words text-xl sm:text-2xl lg:text-3xl">{card.value}</CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-0 text-sm text-muted-foreground">
+                            <CardContent className="hidden pt-0 text-sm text-muted-foreground sm:block">
                                 {card.description}
                             </CardContent>
                         </Card>

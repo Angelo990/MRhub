@@ -74,32 +74,32 @@ export default function Dashboard() {
         {
             label: 'Total Users',
             value: stats.totalUsers,
-            description: 'All accounts currently registered in the system.',
+            description: 'Registered accounts.',
         },
         {
             label: 'Department Heads',
             value: stats.departmentHeads,
-            description: 'Users assigned to departmental request approval and receipt confirmation.',
+            description: 'Department approvers.',
         },
         {
             label: 'Departments',
             value: stats.totalDepartments,
-            description: 'Departments currently represented in the system.',
+            description: 'Active departments.',
         },
         {
             label: 'Pending Requests',
             value: stats.pendingRequests,
-            description: 'Requests still waiting for endorsement or finance approval.',
+            description: 'Awaiting review.',
         },
         {
             label: 'Released Requests',
             value: stats.releasedRequests,
-            description: 'Requests already released by the Property Custodian.',
+            description: 'Released for pickup.',
         },
         {
             label: 'Low Stock Items',
             value: stats.lowStockItems,
-            description: 'Inventory items at or below 5 units on hand.',
+            description: 'Low stock (<5 units).',
         },
     ];
 
@@ -577,14 +577,14 @@ export default function Dashboard() {
                     </Card>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {metricCards.map((card) => (
                         <Card key={card.label} className="border-border/70 bg-card/80 backdrop-blur">
                             <CardHeader className="gap-2">
                                 <CardDescription>{card.label}</CardDescription>
-                                <CardTitle className="break-words text-2xl sm:text-3xl">{card.value}</CardTitle>
+                                <CardTitle className="break-words text-xl sm:text-2xl lg:text-3xl">{card.value}</CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-0 text-sm text-muted-foreground">
+                            <CardContent className="hidden pt-0 text-sm text-muted-foreground sm:block">
                                 {card.description}
                             </CardContent>
                         </Card>
