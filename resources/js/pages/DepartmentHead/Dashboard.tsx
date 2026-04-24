@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePreset, type DashboardDatePresetId } from '../../lib/dashboard-date-filters';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Calendar, FileDown, FileSpreadsheet, FileText, FilePlus, Pencil, Printer, RotateCcw, Settings2, Download, ChevronUp, ChevronDown } from 'lucide-react';
 import { SpeedDial, type SpeedDialItem } from '@/components/SpeedDial';
@@ -81,7 +81,7 @@ export default function Dashboard() {
         'requests-by-status': true,
         'monthly-request-activity': true,
         'most-requested-items': true,
-        'recent-requests': true,
+        'recent-requests': false,
     });
 
     const formatCurrency = (value: number) => `PHP ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -102,6 +102,7 @@ export default function Dashboard() {
             label: 'Total Requests',
             value: stats.totalRequests,
             description: 'Department requests.',
+            hidden: true,
         },
         {
             label: 'Pending Requests',
@@ -122,6 +123,7 @@ export default function Dashboard() {
             label: 'Rejected Requests',
             value: stats.rejectedRequests,
             description: 'Rejected requests.',
+            hidden: true,
         },
         {
             label: 'Estimated Request Value',
@@ -466,7 +468,7 @@ export default function Dashboard() {
             'requests-by-status': true,
             'monthly-request-activity': true,
             'most-requested-items': true,
-            'recent-requests': true,
+            'recent-requests': false,
         });
     };
 
@@ -632,8 +634,41 @@ export default function Dashboard() {
                     </Card>
                 )}
 
+                {/* Spending Donut Hero */}
+                <Card className="border-border/70 bg-card/80 backdrop-blur">
+                    <CardHeader>
+                        <CardTitle>Total Department Spending</CardTitle>
+                        <CardDescription>Estimated value of all requests in the selected period.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-center py-4">
+                        <div className="relative flex items-center justify-center" style={{ height: 220, width: '100%' }}>
+                            <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
+                                <PieChart>
+                                    <Pie
+                                        data={[{ name: 'Total Spent', value: stats.estimatedRequestValue > 0 ? stats.estimatedRequestValue : 1 }]}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={70}
+                                        outerRadius={90}
+                                        startAngle={90}
+                                        endAngle={-270}
+                                        dataKey="value"
+                                        strokeWidth={0}
+                                    >
+                                        <Cell fill="#14532d" />
+                                    </Pie>
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
+                                <span className="text-xs text-muted-foreground">Total Spent</span>
+                                <span className="text-xl font-bold leading-tight">{formatCurrency(stats.estimatedRequestValue)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {metricCards.map((card) => (
+                    {metricCards.filter(c => !c.hidden).map((card) => (
                         <Card key={card.label} className="border-border/70 bg-card/80 backdrop-blur">
                             <CardHeader className="gap-2">
                                 <CardDescription>{card.label}</CardDescription>

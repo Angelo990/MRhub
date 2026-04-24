@@ -31,7 +31,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
     }, [open]);
 
     return (
-        <div ref={containerRef} className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-[calc(1.25rem+env(safe-area-inset-right))] z-40 flex flex-col items-end gap-3 md:hidden">
+        <div ref={containerRef} className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-[calc(1.25rem+env(safe-area-inset-right))] z-40 flex flex-col items-end gap-3 md:hidden pointer-events-none">
             {/* Invisible backdrop to close on outside tap */}
             {open && (
                 <button
@@ -59,7 +59,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
                 >
                     <button
                         type="button"
-                        className="flex items-center gap-3 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
+                        className="pointer-events-auto flex items-center gap-3 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
                         onClick={() => {
                             item.onClick();
                             setOpen(false);
@@ -77,7 +77,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
             {/* Main FAB toggle */}
             <button
                 type="button"
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
+                className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
                 onClick={() => setOpen((v) => !v)}
                 aria-label={open ? 'Close quick actions' : 'Open quick actions'}
                 aria-expanded={open ? 'true' : 'false'}
