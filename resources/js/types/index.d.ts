@@ -12,7 +12,10 @@ export interface NotificationItem {
     actionUrl: string | null;
     actionLabel: string;
     type: string;
+    typeNormalized?: string;
     status: string | null;
+    statusNormalized?: string;
+    severityColor?: 'success' | 'warning' | 'danger' | 'info';
     readAt: string | null;
     createdAt: string | null;
 }

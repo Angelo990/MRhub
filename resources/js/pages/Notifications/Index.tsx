@@ -25,6 +25,32 @@ interface NotificationHistoryPage {
 
 interface PageProps {
     notificationHistory: NotificationHistoryPage;
+    activeFilters: {
+        readState: 'all' | 'read' | 'unread';
+        status: string[];
+        type: string[];
+        fromDate: string | null;
+        toDate: string | null;
+    };
+    filterOptions: {
+        statuses: string[];
+        types: string[];
+    };
+}
+
+const severityClassMap: Record<'success' | 'warning' | 'danger' | 'info', string> = {
+    success: 'border-emerald-200 bg-emerald-100 text-emerald-800',
+    warning: 'border-amber-200 bg-amber-100 text-amber-800',
+    danger: 'border-red-200 bg-red-100 text-red-800',
+    info: 'border-sky-200 bg-sky-100 text-sky-800',
+};
+
+function prettifyKey(value: string) {
+    return value
+        .split('-')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -35,8 +61,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function NotificationsIndex() {
-    const { notificationHistory, csrf_token } = usePage<SharedData & PageProps>().props;
+    const { notificationHistory, csrf_token, activeFilters, filterOptions } = usePage<SharedData & PageProps>().props;
     const [browserPermission, setBrowserPermission] = useState(getBrowserNotificationPermission());
+    const [readState, setReadState] = useState<'all' | 'read' | 'unread'>(activeFilters.readState ?? 'all');
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>(activeFilters.status ?? []);
+    const [selectedTypes, setSelectedTypes] = useState<string[]>(activeFilters.type ?? []);
+    const [fromDate, setFromDate] = useState(activeFilters.fromDate ?? '');
+    const [toDate, setToDate] = useState(activeFilters.toDate ?? '');
 
     const handleMarkAllRead = async () => {
         await fetch('/notifications/read-all', {
@@ -71,6 +102,42 @@ export default function NotificationsIndex() {
         setBrowserPermission(permission);
     };
 
+    const toggleSelection = (value: string, current: string[], setter: (next: string[]) => void) => {
+        setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+    };
+
+    const applyFilters = () => {
+        router.get(
+            notificationsRoute.index().url,
+            {
+                readState,
+                status: selectedStatuses,
+                type: selectedTypes,
+                fromDate: fromDate || undefined,
+                toDate: toDate || undefined,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
+    };
+
+    const clearFilters = () => {
+        setReadState('all');
+        setSelectedStatuses([]);
+        setSelectedTypes([]);
+        setFromDate('');
+        setToDate('');
+
+        router.get(notificationsRoute.index().url, {}, {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Notifications" />
@@ -85,6 +152,11 @@ export default function NotificationsIndex() {
                                     <p className="text-sm text-muted-foreground">
                                         Enable them if you want notifications while this tab is in the background or the browser is minimized.
                                     </p>
+                                    {browserPermission === 'denied' ? (
+                                        <p className="mt-1 text-xs text-amber-700">
+                                            Browser permission is blocked. Enable notifications for this site in browser settings.
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <Button type="button" onClick={() => void handleEnableBrowserAlerts()}>
                                     Enable browser alerts
@@ -119,6 +191,92 @@ export default function NotificationsIndex() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
+                        <div className="space-y-4 rounded-xl border p-4">
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium">Read state</span>
+                                    <select
+                                        value={readState}
+                                        onChange={(event) => setReadState(event.target.value as 'all' | 'read' | 'unread')}
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                    >
+                                        <option value="all">All</option>
+                                        <option value="read">Read</option>
+                                        <option value="unread">Unread</option>
+                                    </select>
+                                </label>
+
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium">From date</span>
+                                    <input
+                                        type="date"
+                                        value={fromDate}
+                                        onChange={(event) => setFromDate(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                    />
+                                </label>
+
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium">To date</span>
+                                    <input
+                                        type="date"
+                                        value={toDate}
+                                        onChange={(event) => setToDate(event.target.value)}
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">Status filters</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {filterOptions.statuses.map((status) => {
+                                            const isChecked = selectedStatuses.includes(status);
+
+                                            return (
+                                                <label key={status} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleSelection(status, selectedStatuses, setSelectedStatuses)}
+                                                    />
+                                                    {status}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">Type filters</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {filterOptions.types.map((type) => {
+                                            const isChecked = selectedTypes.includes(type);
+
+                                            return (
+                                                <label key={type} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleSelection(type, selectedTypes, setSelectedTypes)}
+                                                    />
+                                                    {prettifyKey(type)}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                <Button type="button" onClick={applyFilters}>Apply filters</Button>
+                                <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+                            </div>
+                        </div>
+
                         {notificationHistory.data.length > 0 ? (
                             notificationHistory.data.map((notification) => (
                                 <div
@@ -132,7 +290,16 @@ export default function NotificationsIndex() {
                                                 <Badge variant={notification.readAt ? 'secondary' : 'default'}>
                                                     {notification.readAt ? 'Read' : 'Unread'}
                                                 </Badge>
-                                                {notification.status ? <Badge variant="outline">{notification.status}</Badge> : null}
+                                                {notification.status ? (
+                                                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${severityClassMap[notification.severityColor ?? 'info'] ?? severityClassMap.info}`}>
+                                                        {notification.status}
+                                                    </span>
+                                                ) : null}
+                                                {notification.typeNormalized ? (
+                                                    <span className="inline-flex items-center rounded-full border border-muted bg-muted/60 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                                        {prettifyKey(notification.typeNormalized)}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                             <p className="text-sm text-muted-foreground">{notification.message}</p>
                                             <p className="text-xs text-muted-foreground">

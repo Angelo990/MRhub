@@ -8,6 +8,26 @@ import { showBrowserNotification } from '@/lib/browser-notifications';
 import notificationsRoute from '@/routes/notifications';
 import type { NotificationItem, SharedData } from '@/types';
 
+const severityClassMap: Record<'success' | 'warning' | 'danger' | 'info', string> = {
+    success: 'border-emerald-200 bg-emerald-100 text-emerald-800',
+    warning: 'border-amber-200 bg-amber-100 text-amber-800',
+    danger: 'border-red-200 bg-red-100 text-red-800',
+    info: 'border-sky-200 bg-sky-100 text-sky-800',
+};
+
+function prettifyKey(value: string) {
+    return value
+        .split('-')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
+function getSeverityClass(notification: NotificationItem) {
+    const severity = notification.severityColor ?? 'info';
+    return severityClassMap[severity] ?? severityClassMap.info;
+}
+
 export function NotificationMenu() {
     const { notifications, csrf_token } = usePage<SharedData>().props;
     const [items, setItems] = useState<NotificationItem[]>(notifications.items);
@@ -175,6 +195,18 @@ export function NotificationMenu() {
                                     {notification.message.startsWith('[URGENT]') ? (
                                         <><span className="text-red-600 font-medium">[URGENT]</span>{notification.message.slice(8)}</>
                                     ) : notification.message}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    {notification.status ? (
+                                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getSeverityClass(notification)}`}>
+                                            {notification.status}
+                                        </span>
+                                    ) : null}
+                                    {notification.typeNormalized ? (
+                                        <span className="inline-flex items-center rounded-full border border-muted bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                            {prettifyKey(notification.typeNormalized)}
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
                                     <span>{notification.actionLabel}</span>
