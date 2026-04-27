@@ -461,6 +461,7 @@ export default function Dashboard() {
                             <Button size="icon" variant="ghost" type="button" className="h-7 w-7" onClick={() => setIsDateModalOpen(true)} title="Open date range picker">
                                 <Calendar size={20} />
                             </Button>
+                            <span className="font-medium">{dateRangeLabel}</span>
                         </div>
                     </div>
                     <div className="hidden flex-wrap items-center gap-2 md:flex">
@@ -493,16 +494,20 @@ export default function Dashboard() {
                             <DialogTitle>Date Range</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 px-4 py-4">
-                            <Select value={activePreset ?? ''} onValueChange={(value) => handlePresetSelect(value as Exclude<DashboardDatePresetId, 'custom'>)}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select a preset" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {DASHBOARD_DATE_PRESETS.map((preset) => (
-                                        <SelectItem key={preset.id} value={preset.id}>{preset.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Preset date range</label>
+                                <Select value={activePreset ?? ''} onValueChange={(value) => handlePresetSelect(value as Exclude<DashboardDatePresetId, 'custom'>)}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Choose a preset range" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DASHBOARD_DATE_PRESETS.map((preset) => (
+                                            <SelectItem key={preset.id} value={preset.id}>{preset.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">Pick a preset above or set custom From/To dates below.</p>
+                            </div>
                             <label className="flex w-full flex-col gap-2 text-sm">
                                 <span>From</span>
                                 <input type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2" />
