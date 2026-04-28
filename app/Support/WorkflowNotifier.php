@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\Request as SupplyRequest;
+use App\Models\Department;
+use App\Models\DepartmentBudget;
 use App\Models\User;
 use App\Notifications\WorkflowNotification;
 use Illuminate\Support\Collection;
@@ -146,6 +148,50 @@ class WorkflowNotifier
             'status' => $request->status,
             'type' => 'request-completed',
         ], $actor?->id);
+    }
+
+    public static function budgetLow(Department $department, DepartmentBudget $budget): void
+    {
+        $threshold = number_format((float) $budget->low_budget_threshold, 2);
+        $available = number_format($budget->available_amount, 2);
+        $semester  = $budget->semester?->label ?? 'current semester';
+
+        // Notify Finance
+        self::sendToRole('finance', [
+            'title'        => 'Low Budget Warning',
+            'message'      => "{$department->name} has only ₱{$available} remaining in its {$semester} budget (threshold: ₱{$threshold}).",
+            'action_url'   => route('dashboard.finance'),
+            'action_label' => 'View budgets',
+            'type'         => 'budget-warning',
+            'status'       => 'warning',
+        ]);
+
+        // Notify Department Head(s) of that department
+        $users = User::role('department-head')->where('department_id', $department->id)->get();
+        self::send($users, [
+            'title'        => 'Low Budget Warning',
+            'message'      => "Your department's budget for {$semester} is running low. Only ₱{$available} remains.",
+            'action_url'   => route('department-head.requests.index'),
+            'action_label' => 'View requests',
+            'type'         => 'budget-warning',
+            'status'       => 'warning',
+        ]);
+    }
+
+    public static function budgetAllocated(Department $department, DepartmentBudget $budget): void
+    {
+        $allocated = number_format((float) $budget->allocated_amount, 2);
+        $semester  = $budget->semester?->label ?? 'the current semester';
+
+        $users = User::role('department-head')->where('department_id', $department->id)->get();
+        self::send($users, [
+            'title'        => 'Budget Allocated',
+            'message'      => "Finance has set your department's budget for {$semester} to ₱{$allocated}.",
+            'action_url'   => route('department-head.requests.index'),
+            'action_label' => 'View requests',
+            'type'         => 'budget-info',
+            'status'       => 'info',
+        ]);
     }
 
     protected static function sendToRole(string $role, array $payload, ?int $exceptUserId = null): void

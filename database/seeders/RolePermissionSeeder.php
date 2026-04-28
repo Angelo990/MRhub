@@ -19,6 +19,7 @@ class RolePermissionSeeder extends Seeder
             'property-custodian',
             'vp-finance',
             'department-head',
+            'finance',
         ];
 
         // Define permissions
@@ -34,6 +35,11 @@ class RolePermissionSeeder extends Seeder
             'view property-custodian dashboard',
             'view vp-finance dashboard',
             'view department-head dashboard',
+            'view finance dashboard',
+
+            // Budget permissions
+            'manage budgets',
+            'view budget reports',
 
             // admin permissions
             'view admin dashboard',
@@ -61,7 +67,10 @@ class RolePermissionSeeder extends Seeder
             }
             if ($role === 'department-head') {
                 $roleModel->syncPermissions(['request items', 'manage inventory', 'view reports']);
-            } 
+            }
+            if ($role === 'finance') {
+                $roleModel->syncPermissions(['manage budgets', 'view budget reports', 'view finance dashboard', 'view reports']);
+            }
         }
     }
 }

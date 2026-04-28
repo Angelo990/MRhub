@@ -41,6 +41,12 @@ class UserSeeder extends Seeder
                 'role' => 'department-head',
                 'department_id' => $csitDepartmentId,
             ],
+            [
+                'name' => 'Finance User',
+                'email' => 'finance@gmail.com',
+                'role' => 'finance',
+                'department_id' => null,
+            ],
         ];
 
         foreach ($users as $seededUser) {

@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Models\RequestItem;
 use App\Models\Department;
 use App\Models\Item;
+use App\Services\BudgetService;
 use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
@@ -55,7 +56,13 @@ class RequestController extends Controller
         $departments = Department::all();
         $items = Item::all();
         $userDepartment = $user->department;
-        return Inertia::render('DepartmentHead/CreateRequest', compact('departments', 'items', 'userDepartment'));
+        $budget = BudgetService::activeBudgetForDepartment($user->department_id);
+        $budgetInfo = $budget ? [
+            'available_amount' => $budget->available_amount,
+            'allocated_amount' => (float) $budget->allocated_amount,
+            'semester_label'   => $budget->semester?->label,
+        ] : null;
+        return Inertia::render('DepartmentHead/CreateRequest', compact('departments', 'items', 'userDepartment', 'budgetInfo'));
     }
 
     // Store a new request
@@ -98,6 +105,20 @@ class RequestController extends Controller
             ->unique();
 
         $inventoryItems = Item::whereIn('id', $inventoryItemIds)->get()->keyBy('id');
+
+        // Budget validation: compute total cost from submitted items before persisting
+        $submittedCost = collect($data['items'])->reduce(function (float $carry, array $item) use ($inventoryItems) {
+            $isCustom = ! empty($item['is_custom']);
+            $price = $isCustom
+                ? (float) ($item['unit_price_at_request'] ?? 0)
+                : (float) ($inventoryItems->get((int) $item['item_id'])?->unit_price ?? 0);
+            return $carry + ($price * (int) $item['quantity']);
+        }, 0.0);
+
+        $budgetError = BudgetService::validateCost($user->department_id, $submittedCost);
+        if ($budgetError) {
+            return back()->withErrors(['budget' => $budgetError])->withInput();
+        }
 
         $requestModel = Request::create([
             'date'         => $data['date'],
@@ -162,11 +183,15 @@ class RequestController extends Controller
         $departments = Department::all();
         $items = Item::all();
         $request->load('items', 'department');
+        $budget = BudgetService::activeBudgetForDepartment($user->department_id);
+        $budgetInfo = $budget ? [
+            'available_amount' => $budget->available_amount,
+            'allocated_amount' => (float) $budget->allocated_amount,
+            'semester_label'   => $budget->semester?->label,
+        ] : null;
 
-        return Inertia::render('DepartmentHead/EditRequest', compact('request', 'departments', 'items'));
+        return Inertia::render('DepartmentHead/EditRequest', compact('request', 'departments', 'items', 'budgetInfo'));
     }
-
-    // Update an existing request
     public function update(HttpRequest $httpRequest, Request $request)
     {
         $user = $httpRequest->user();
@@ -208,6 +233,20 @@ class RequestController extends Controller
             ->unique();
 
         $inventoryItems = Item::whereIn('id', $inventoryItemIds)->get()->keyBy('id');
+
+        // Budget validation (edit): exclude current request's cost to avoid double-counting
+        $submittedCost = collect($data['items'])->reduce(function (float $carry, array $item) use ($inventoryItems) {
+            $isCustom = ! empty($item['is_custom']);
+            $price = $isCustom
+                ? (float) ($item['unit_price_at_request'] ?? 0)
+                : (float) ($inventoryItems->get((int) $item['item_id'])?->unit_price ?? 0);
+            return $carry + ($price * (int) $item['quantity']);
+        }, 0.0);
+
+        $budgetError = BudgetService::validateCost($user->department_id, $submittedCost, $request->id);
+        if ($budgetError) {
+            return back()->withErrors(['budget' => $budgetError])->withInput();
+        }
 
         $request->update(['purpose' => $data['purpose'], 'is_urgent' => ! empty($data['is_urgent'])]);
 

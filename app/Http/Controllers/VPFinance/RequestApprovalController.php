@@ -5,6 +5,7 @@ namespace App\Http\Controllers\VPFinance;
 use App\Http\Controllers\Controller;
 use App\Models\Request;
 use App\Models\RequestItem;
+use App\Services\BudgetService;
 use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,9 @@ class RequestApprovalController extends Controller
             $request->status      = 'Approved';
             $request->approved_by = $actor->name;
             $request->save();
+
+            $rejectedIds = collect($data['rejected_items'] ?? [])->pluck('id')->toArray();
+            BudgetService::spend($request->loadMissing('items'), $actor, $rejectedIds);
         });
 
         $request->load(['items', 'department']);
@@ -79,6 +83,7 @@ class RequestApprovalController extends Controller
         $request->approved_by = auth()->user()->name;
         $request->save();
 
+        BudgetService::release($request->loadMissing('items'), $httpRequest->user());
         WorkflowNotifier::requestRejected($request->loadMissing('department'), $httpRequest->user());
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {

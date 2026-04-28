@@ -26,6 +26,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return redirect()->route('dashboard.department-head');
         } elseif ($user->hasRole('admin')) {
             return redirect()->route('dashboard.admin');
+        } elseif ($user->hasRole('finance')) {
+            return redirect()->route('dashboard.finance');
         }
         return Inertia::render('errors/404');
     })->name('dashboard');
@@ -46,6 +48,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/admin', \App\Http\Controllers\Admin\DashboardController::class)
         ->middleware('role:admin')
         ->name('dashboard.admin');
+
+    Route::get('dashboard/finance', \App\Http\Controllers\Finance\DashboardController::class)
+        ->middleware('role:finance')
+        ->name('dashboard.finance');
+
+    /* -- Finance Routes -- */
+    Route::group(['middleware' => ['role:finance']], function () {
+        Route::prefix('finance')->name('finance.')->group(function () {
+            Route::post('/budgets', [\App\Http\Controllers\Finance\BudgetController::class, 'store'])->name('budgets.store');
+            Route::put('/budgets/{budget}', [\App\Http\Controllers\Finance\BudgetController::class, 'update'])->name('budgets.update');
+            Route::post('/semesters', [\App\Http\Controllers\Finance\SemesterController::class, 'store'])->name('semesters.store');
+            Route::post('/semesters/{semester}/activate', [\App\Http\Controllers\Finance\SemesterController::class, 'activate'])->name('semesters.activate');
+        });
+    });
 
     /* -- Admin Routes -- */
     Route::group(['middleware' => ['role:admin']], function () {

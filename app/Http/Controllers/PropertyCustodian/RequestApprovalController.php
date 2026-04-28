@@ -4,6 +4,7 @@ namespace App\Http\Controllers\PropertyCustodian;
 
 use App\Http\Controllers\Controller;
 use App\Models\Request;
+use App\Services\BudgetService;
 use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Redirect;
@@ -29,6 +30,7 @@ class RequestApprovalController extends Controller
         $request->locked_at = now();
         $request->save();
 
+        BudgetService::reserve($request->loadMissing('items'), $httpRequest->user());
         WorkflowNotifier::requestEndorsed($request->loadMissing('department'), $httpRequest->user());
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
