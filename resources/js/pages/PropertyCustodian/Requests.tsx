@@ -101,6 +101,8 @@ export default function Requests() {
     const [viewItemsRequest, setViewItemsRequest] = useState<number | null>(null);
     // Per-item release quantities indexed by RequestItem id
     const [releaseQtys, setReleaseQtys] = useState<Record<number, number>>({});
+    // Per-item unit prices for custom items (PC-entered at release time)
+    const [releaseUnitPrices, setReleaseUnitPrices] = useState<Record<number, string>>({});
     const [receiptForm, setReceiptForm] = useState({
         delivery_date: new Date().toISOString().slice(0, 10),
         prepared_by: '',
@@ -181,6 +183,14 @@ export default function Requests() {
             }
         });
         setReleaseQtys(initial);
+        // Pre-populate prices for custom items from saved unit_price_at_request if available
+        const initialPrices: Record<number, string> = {};
+        req?.items.forEach((item) => {
+            if (item.is_custom && !item.rejection_reason) {
+                initialPrices[item.id] = item.unit_price_at_request != null ? String(item.unit_price_at_request) : '';
+            }
+        });
+        setReleaseUnitPrices(initialPrices);
         setReceiptForm({
             delivery_date: new Date().toISOString().slice(0, 10),
             prepared_by: '',
@@ -291,18 +301,38 @@ export default function Requests() {
         setProcessingId(id);
         setError(null);
 
+        const req = tableData.find((r) => r.id === id);
+
         // Build items array from releaseQtys (only entries with qty > 0)
         const itemsToRelease = Object.entries(releaseQtys)
             .filter(([, qty]) => qty > 0)
-            .map(([requestItemId, qty]) => ({
-                request_item_id: Number(requestItemId),
-                quantity_to_release: qty,
-            }));
+            .map(([requestItemId, qty]) => {
+                const rid = Number(requestItemId);
+                const reqItem = req?.items.find((i) => i.id === rid);
+                const entry: { request_item_id: number; quantity_to_release: number; unit_price?: number } = {
+                    request_item_id: rid,
+                    quantity_to_release: qty,
+                };
+                if (reqItem?.is_custom) {
+                    entry.unit_price = parseFloat(releaseUnitPrices[rid] ?? '');
+                }
+                return entry;
+            });
 
         if (itemsToRelease.length === 0) {
             setError('Please enter a quantity for at least one item.');
             setProcessingId(null);
             return;
+        }
+
+        // Validate custom item prices
+        for (const entry of itemsToRelease) {
+            const reqItem = req?.items.find((i) => i.id === entry.request_item_id);
+            if (reqItem?.is_custom && (entry.unit_price === undefined || isNaN(entry.unit_price) || entry.unit_price < 0)) {
+                setError(`Please enter a valid unit price for custom item "${reqItem.particular}".`);
+                setProcessingId(null);
+                return;
+            }
         }
 
         try {
@@ -508,6 +538,7 @@ export default function Requests() {
                                                                 <th className="px-3 py-2 text-center">Status</th>
                                                                 <th className="px-3 py-2 text-right">Progress</th>
                                                                 <th className="px-3 py-2 text-right">Qty to Release</th>
+                                                                <th className="px-3 py-2 text-right">Unit Price</th>
                                                                 <th className="px-3 py-2 text-left">Unit</th>
                                                             </tr>
                                                         </thead>
@@ -520,6 +551,9 @@ export default function Requests() {
                                                                     <tr key={item.id} className={`border-t border-border/40 ${isRejected ? 'bg-red-50/60 dark:bg-red-950/10' : ''}`}>
                                                                         <td className="px-3 py-2">
                                                                             <span className={isRejected ? 'line-through text-muted-foreground' : ''}>{item.particular}</span>
+                                                                            {item.is_custom && !isRejected && (
+                                                                                <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700">Custom</span>
+                                                                            )}
                                                                             {isRejected && (
                                                                                 <p className="text-xs text-red-600 mt-0.5">Rejected: {item.rejection_reason}</p>
                                                                             )}
@@ -547,6 +581,27 @@ export default function Requests() {
                                                                                     className="w-20 rounded border px-2 py-1 text-right text-sm"
                                                                                     title={`Max: ${remaining}`}
                                                                                 />
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-3 py-2 text-right">
+                                                                            {isRejected ? (
+                                                                                <span className="text-muted-foreground">—</span>
+                                                                            ) : item.is_custom ? (
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min={0}
+                                                                                    step="0.01"
+                                                                                    value={releaseUnitPrices[item.id] ?? ''}
+                                                                                    onChange={(e) => setReleaseUnitPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                                                                    className="w-28 rounded border px-2 py-1 text-right text-sm"
+                                                                                    placeholder="₱ 0.00"
+                                                                                    title="Enter unit price for this custom item"
+                                                                                    required={(releaseQtys[item.id] ?? 0) > 0}
+                                                                                />
+                                                                            ) : (
+                                                                                <span className="text-muted-foreground text-xs">
+                                                                                    {item.unit_price_at_request != null ? formatCurrency(item.unit_price_at_request) : '—'}
+                                                                                </span>
                                                                             )}
                                                                         </td>
                                                                         <td className="px-3 py-2">{item.unit}</td>

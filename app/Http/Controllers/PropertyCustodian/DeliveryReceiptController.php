@@ -33,6 +33,7 @@ class DeliveryReceiptController extends Controller
             'items'                        => 'required|array|min:1',
             'items.*.request_item_id'      => 'required|integer|exists:request_items,id',
             'items.*.quantity_to_release'  => 'required|integer|min:1',
+            'items.*.unit_price'           => 'nullable|numeric|min:0',
         ]);
 
         $request->load('items');
@@ -48,7 +49,10 @@ class DeliveryReceiptController extends Controller
             }
             $remaining = $reqItem->remainingQuantity();
             if ($line['quantity_to_release'] > $remaining) {
-                return response()->json(['error' => "Cannot release {$line['quantity_to_release']} of \"{$reqItem->particular}\" — only {$remaining} remaining."], 422);
+                return response()->json(['error' => "Cannot release {$line['quantity_to_release']} of \"{$reqItem->particular}\" â€” only {$remaining} remaining."], 422);
+            }
+            if ($reqItem->is_custom && (! isset($line['unit_price']) || $line['unit_price'] === null || $line['unit_price'] === '')) {
+                return response()->json(['error' => "A unit price is required for custom item \"{$reqItem->particular}\"."], 422);
             }
         }
 
@@ -60,12 +64,21 @@ class DeliveryReceiptController extends Controller
             $inventoryItem = Item::find($reqItem->item_id);
             if (! $inventoryItem || $inventoryItem->quantity < $line['quantity_to_release']) {
                 $available = $inventoryItem ? $inventoryItem->quantity : 0;
-                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" — requested {$line['quantity_to_release']}, available {$available}."], 422);
+                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" ï¿½ requested {$line['quantity_to_release']}, available {$available}."], 422);
             }
         }
 
         DB::beginTransaction();
         try {
+            // For custom items, persist the PC-supplied price before computing totals
+            foreach ($data['items'] as $line) {
+                $reqItem = $reqItemsById->get($line['request_item_id']);
+                if ($reqItem->is_custom && isset($line['unit_price']) && $line['unit_price'] !== null) {
+                    $reqItem->unit_price_at_request = (float) $line['unit_price'];
+                    $reqItem->save();
+                }
+            }
+
             $batchTotal = 0.0;
             foreach ($data['items'] as $line) {
                 $reqItem  = $reqItemsById->get($line['request_item_id']);
