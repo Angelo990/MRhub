@@ -87,7 +87,7 @@ export function RequestItemsDialog<TData extends RequestWithItemsView>({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-3xl lg:max-w-5xl flex-col overflow-hidden p-0">
-                <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
+                <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6 sm:pr-12">
                     <DialogTitle>Items - Request #{request.id}</DialogTitle>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6">
