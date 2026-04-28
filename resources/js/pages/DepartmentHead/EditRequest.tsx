@@ -46,6 +46,7 @@ interface PageProps {
     request: ExistingRequest;
     departments: Department[];
     items: Item[];
+    budgetInfo?: { available_amount: number; allocated_amount: number; semester_label: string | null } | null;
     [key: string]: unknown;
 }
 
@@ -63,7 +64,7 @@ const formatCurrency = (v: number) =>
     `₱ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function EditRequest() {
-    const { request: existingRequest, items } = usePage<PageProps>().props;
+    const { request: existingRequest, items, budgetInfo } = usePage<PageProps>().props;
 
     const itemsList: Item[] = items || [];
 
@@ -205,6 +206,43 @@ export default function EditRequest() {
                             <p className="mt-1 text-xs text-red-600">This request will be flagged as urgent. Notifications will include an [URGENT] prefix.</p>
                         )}
                     </div>
+
+                    {/* Budget widget */}
+                    {budgetInfo && (
+                        <div className={`rounded-lg border p-4 ${
+                            totalValue > budgetInfo.available_amount
+                                ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/20'
+                                : totalValue >= budgetInfo.available_amount * 0.85
+                                  ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20'
+                                  : 'border-border bg-card'
+                        }`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {budgetInfo.semester_label ? `Budget — ${budgetInfo.semester_label}` : 'Current Budget'}
+                                    </p>
+                                    <p className="text-sm font-semibold">
+                                        Available: {formatCurrency(budgetInfo.available_amount)}
+                                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                            of {formatCurrency(budgetInfo.allocated_amount)} allocated
+                                        </span>
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">This request</p>
+                                    <p className={`text-sm font-semibold ${totalValue > budgetInfo.available_amount ? 'text-red-600' : totalValue >= budgetInfo.available_amount * 0.85 ? 'text-amber-600' : ''}`}>
+                                        {formatCurrency(totalValue)}
+                                    </p>
+                                </div>
+                            </div>
+                            {totalValue > budgetInfo.available_amount && (
+                                <p className="mt-2 text-xs font-medium text-red-600">⚠ Request total exceeds your available budget.</p>
+                            )}
+                            {totalValue >= budgetInfo.available_amount * 0.85 && totalValue <= budgetInfo.available_amount && (
+                                <p className="mt-2 text-xs font-medium text-amber-600">⚠ Request total is near your budget limit.</p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Items section */}
                     <div>
@@ -365,7 +403,7 @@ export default function EditRequest() {
 
                     <div className="flex flex-col justify-end gap-2 sm:flex-row">
                         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.visit('/department-head/requests')}>Cancel</Button>
-                        <Button type="submit" variant="default" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving…' : 'Save Changes'}</Button>
+                        <Button type="submit" variant="default" disabled={loading || !!(budgetInfo && totalValue > budgetInfo.available_amount)} className="w-full sm:w-auto">{loading ? 'Saving…' : 'Save Changes'}</Button>
                     </div>
                 </form>
             </div>

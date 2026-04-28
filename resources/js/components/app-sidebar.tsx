@@ -5,7 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Users, ClipboardList, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, Users, ClipboardList, ShieldCheck, Wallet } from 'lucide-react';
 import AppLogo from './app-logo';
 
 function getRoleNavItems(role: string): NavItem[] {
@@ -26,6 +26,11 @@ function getRoleNavItems(role: string): NavItem[] {
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
                 // { title: 'Finance', href: '/finance', icon: Briefcase },
                 { title: 'Requests', href: '/vp-finance/requests', icon: ShieldCheck },
+            ];
+        case 'finance':
+            return [
+                { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+                { title: 'Budgets', href: '/dashboard/finance', icon: Wallet },
             ];
         case 'department-head':
             return [
