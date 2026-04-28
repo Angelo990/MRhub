@@ -14,7 +14,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { SharedData } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
@@ -80,6 +80,11 @@ interface RequestResponse {
     success: boolean;
     request: Request;
 }
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard/department-head' },
+    { title: 'My Requests', href: '/department-head/requests' },
+];
 
 export default function MyRequest() {
     const { requests, csrf_token } = usePage<SharedData & PageProps>().props;
@@ -309,7 +314,7 @@ export default function MyRequest() {
         const { totalRows, totalPages, showingFrom, showingTo } = getPaginationSummary(table);
 
         return (
-            <AppLayout>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
                     <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-2xl font-bold">My Requests</h1>

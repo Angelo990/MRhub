@@ -16,7 +16,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { SharedData } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
@@ -88,6 +88,11 @@ interface RequestResponse {
     success: boolean;
     request: Request;
 }
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard/property-custodian' },
+    { title: 'Requests', href: '/property-custodian/requests' },
+];
 
 export default function Requests() {
     const { requests, csrf_token } = usePage<SharedData & PageProps>().props;
@@ -384,7 +389,7 @@ export default function Requests() {
         const { totalRows, totalPages, showingFrom, showingTo } = getPaginationSummary(table);
 
         return (
-            <AppLayout>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
                     <div className="flex items-center justify-between mb-2">
                         <h1 className="text-2xl font-bold">Pending Requests</h1>

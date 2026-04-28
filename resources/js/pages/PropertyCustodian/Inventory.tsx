@@ -8,7 +8,7 @@ import {
     ColumnDef,
 } from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+import dashboard from '@/routes/dashboard';
 import { type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
@@ -52,7 +52,7 @@ interface ItemResponse {
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: dashboard().url },
+    { title: 'Dashboard', href: dashboard.propertyCustodian().url },
     { title: 'Inventory', href: '/property-custodian/items' },
 ];
 

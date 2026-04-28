@@ -72,7 +72,7 @@ interface PageProps {
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Finance Dashboard', href: '/dashboard/finance' },
+    { title: 'Dashboard', href: '/dashboard/finance' },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -99,6 +99,16 @@ const TYPE_CHART_COLORS: Record<string, string> = {
     spending: '#dc2626',
     adjustment: '#7c3aed',
 };
+
+const TYPE_CHART_DOT_CLASSES: Record<string, string> = {
+    allocation: 'bg-green-600',
+    reservation: 'bg-sky-600',
+    release: 'bg-amber-600',
+    spending: 'bg-red-600',
+    adjustment: 'bg-violet-600',
+};
+
+const FALLBACK_CHART_DOT_CLASSES = ['bg-emerald-900', 'bg-blue-700', 'bg-teal-700', 'bg-violet-600', 'bg-rose-700', 'bg-orange-700'];
 
 const fmt = (n: number) =>
     `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -356,10 +366,8 @@ export default function FinanceDashboard() {
                             <div className="mt-2 flex flex-wrap gap-3 justify-center">
                                 {transactionsByType.map((t, i) => (
                                     <div key={t.name} className="flex items-center gap-1.5 text-xs">
-                                        {/* eslint-disable-next-line react/forbid-dom-props */}
                                         <span
-                                            className="inline-block h-2.5 w-2.5 rounded-full"
-                                            style={{ backgroundColor: TYPE_CHART_COLORS[t.name] ?? CHART_COLORS[i % CHART_COLORS.length] }}
+                                            className={`inline-block h-2.5 w-2.5 rounded-full ${TYPE_CHART_DOT_CLASSES[t.name] ?? FALLBACK_CHART_DOT_CLASSES[i % FALLBACK_CHART_DOT_CLASSES.length]}`}
                                         />
                                         <span>{TYPE_LABELS[t.name] ?? t.name}</span>
                                         <span className="text-muted-foreground">({t.count})</span>

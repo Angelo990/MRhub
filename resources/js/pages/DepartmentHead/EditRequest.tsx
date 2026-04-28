@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import type { FormDataConvertible } from '@inertiajs/core';
 import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
+import type { BreadcrumbItem } from '@/types';
 
 interface Department {
     id: number;
@@ -63,6 +65,12 @@ interface FormItem {
 const formatCurrency = (v: number) =>
     `₱ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard/department-head' },
+    { title: 'My Requests', href: '/department-head/requests' },
+    { title: 'Edit Request', href: '/department-head/requests' },
+];
+
 export default function EditRequest() {
     const { request: existingRequest, items, budgetInfo } = usePage<PageProps>().props;
 
@@ -95,7 +103,7 @@ export default function EditRequest() {
     // Guard: if locked, surface a message (backend also 403s PUT requests)
     if (existingRequest.locked_at) {
         return (
-            <AppLayout>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
                     <div className="rounded border border-amber-300 bg-amber-50 p-4 text-amber-800">
                         This request has been endorsed and can no longer be edited.
@@ -160,7 +168,8 @@ export default function EditRequest() {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        router.put(`/department-head/requests/${existingRequest.id}`, form as Record<string, unknown>, {
+        const payload = form as unknown as Record<string, FormDataConvertible>;
+        router.put(`/department-head/requests/${existingRequest.id}`, payload, {
             onError: (errors) => setError(Object.values(errors).flat().join(' ') || 'Failed to update request.'),
             onSuccess: () => router.visit('/department-head/requests'),
             onFinish: () => setLoading(false),
@@ -168,7 +177,7 @@ export default function EditRequest() {
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
                 <h1 className="mb-6 text-2xl font-bold">Edit Request #{existingRequest.id}</h1>
                 {error && <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}

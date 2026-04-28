@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-table';
 import AppLayout from '@/layouts/app-layout';
 import { router, usePage } from '@inertiajs/react';
-import { dashboard } from '@/routes';
+import dashboard from '@/routes/dashboard';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,8 +50,8 @@ interface UserResponse {
 
 
 const breadcrumbs: BreadcrumbItem[] = [
-	{ title: 'Dashboard', href: dashboard().url },
-	{ title: 'User Management', href: '/admin/users' },
+	{ title: 'Dashboard', href: dashboard.admin().url },
+	{ title: 'Manage Users', href: '/admin/users' },
 ];
 
 

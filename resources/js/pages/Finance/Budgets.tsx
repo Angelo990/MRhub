@@ -43,8 +43,8 @@ interface PageProps {
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Finance Dashboard', href: '/dashboard/finance' },
-    { title: 'Budget Management', href: '/finance/budgets' },
+    { title: 'Dashboard', href: '/dashboard/finance' },
+    { title: 'Budgets', href: '/finance/budgets' },
 ];
 
 const fmt = (n: number) =>

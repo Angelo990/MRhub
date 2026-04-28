@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { BreadcrumbItem } from '@/types';
 
 interface Department {
     id: number;
@@ -49,6 +50,12 @@ interface FormItem {
 
 const formatCurrency = (v: number) =>
     `₱ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard/department-head' },
+    { title: 'My Requests', href: '/department-head/requests' },
+    { title: 'Create Request', href: '/department-head/requests/create' },
+];
 
 export default function CreateRequest() {
     const { departments, items, auth, userDepartment, budgetInfo } = usePage<CreateRequestPageProps>().props;
@@ -176,7 +183,7 @@ export default function CreateRequest() {
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
                 <h1 className="mb-6 text-2xl font-bold">Create Item Request</h1>
                 {error && <div className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}

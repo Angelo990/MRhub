@@ -67,13 +67,15 @@ class HandleInertiaRequests extends Middleware
             ];
         }
 
+        $sharedUser = $request->user()?->loadMissing(['roles', 'department']);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'csrf_token' => csrf_token(),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $sharedUser,
             ],
             'notifications' => $notifications,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
