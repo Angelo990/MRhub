@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\DepartmentHead;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepartmentBudget;
 use App\Models\Request as SupplyRequest;
+use App\Models\Semester;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -131,6 +133,21 @@ class DashboardController extends Controller
             'estimatedRequestValue' => $requestValue,
         ];
 
+        $activeSemester = Semester::current();
+        $departmentBudget = $activeSemester
+            ? DepartmentBudget::where('department_id', $departmentId)
+                ->where('semester_id', $activeSemester->id)
+                ->first()
+            : null;
+
+        $budget = [
+            'semesterLabel'   => $activeSemester?->label ?? 'No Active Semester',
+            'allocatedAmount' => $departmentBudget ? (float) $departmentBudget->allocated_amount : 0.0,
+            'totalSpent'      => $departmentBudget ? (float) $departmentBudget->spent_amount : 0.0,
+            'reservedAmount'  => $departmentBudget ? (float) $departmentBudget->reserved_amount : 0.0,
+            'remainingBudget' => $departmentBudget ? $departmentBudget->available_amount : 0.0,
+        ];
+
         return Inertia::render('DepartmentHead/Dashboard', [
             'departmentName' => $departmentName,
             'stats' => $stats,
@@ -143,6 +160,7 @@ class DashboardController extends Controller
                 'from' => $from,
                 'to' => $to,
             ],
+            'budget' => $budget,
         ]);
     }
 }

@@ -23,7 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, monthlySpending, recentRequests, filters } = usePage<SharedData & {
+    const { departmentName, stats, requestsByStatus, mostRequestedItems, monthlyRequests, monthlySpending, recentRequests, filters, budget } = usePage<SharedData & {
         departmentName: string;
         stats: {
             totalRequests: number;
@@ -50,6 +50,13 @@ export default function Dashboard() {
         filters: {
             from: string | null;
             to: string | null;
+        };
+        budget: {
+            semesterLabel: string;
+            allocatedAmount: number;
+            totalSpent: number;
+            reservedAmount: number;
+            remainingBudget: number;
         };
     }>().props;
 
@@ -124,11 +131,6 @@ export default function Dashboard() {
             value: stats.rejectedRequests,
             description: 'Rejected requests.',
             hidden: true,
-        },
-        {
-            label: 'Estimated Request Value',
-            value: formatCurrency(stats.estimatedRequestValue),
-            description: 'Estimated request spend.',
         },
     ];
 
@@ -541,12 +543,15 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="space-y-1">
                         <h1 className="text-2xl font-bold">{departmentName} Analytics Dashboard</h1>
-                        <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
                             <span>Analytics</span>
                             <Button size="icon" variant="ghost" type="button" className="h-7 w-7" onClick={() => setIsDateModalOpen(true)} title="Open date range picker">
                                 <Calendar size={20} />
                             </Button>
                             <span className="font-medium">{dateRangeLabel}</span>
+                            <span className="rounded-full border border-border/70 bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+                                {budget.semesterLabel}
+                            </span>
                         </div>
                     </div>
                     <div className="hidden flex-wrap items-center gap-2 md:flex">
@@ -639,34 +644,81 @@ export default function Dashboard() {
                     </Card>
                 )}
 
-                {/* Spending Donut Hero */}
+                {/* Budget Overview Hero */}
                 <Card className="border-border/70 bg-card/80 backdrop-blur">
                     <CardHeader>
-                        <CardTitle>Total Department Spending</CardTitle>
-                        <CardDescription>Estimated value of all requests in the selected period.</CardDescription>
+                        <CardTitle>Budget Overview</CardTitle>
+                        <CardDescription>{budget.semesterLabel} — allocated {formatCurrency(budget.allocatedAmount)}</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex items-center justify-center py-4">
-                        <div className="relative flex items-center justify-center" style={{ height: 220, width: '100%' }}>
-                            <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-                                <PieChart>
-                                    <Pie
-                                        data={[{ name: 'Total Spent', value: stats.estimatedRequestValue > 0 ? stats.estimatedRequestValue : 1 }]}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={70}
-                                        outerRadius={90}
-                                        startAngle={90}
-                                        endAngle={-270}
-                                        dataKey="value"
-                                        strokeWidth={0}
-                                    >
-                                        <Cell fill="#14532d" />
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
-                                <span className="text-xs text-muted-foreground">Total Spent</span>
-                                <span className="text-xl font-bold leading-tight">{formatCurrency(stats.estimatedRequestValue)}</span>
+                    <CardContent>
+                        <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
+                            {/* Donut */}
+                            <div className="relative flex h-[200px] w-[200px] shrink-0 items-center justify-center">
+                                <ResponsiveContainer width={200} height={200} minWidth={1} minHeight={1}>
+                                    <PieChart>
+                                        <Pie
+                                            data={
+                                                budget.allocatedAmount > 0
+                                                    ? [
+                                                        { name: 'Total Spent', value: budget.totalSpent },
+                                                        { name: 'Remaining', value: Math.max(0, budget.remainingBudget) },
+                                                    ]
+                                                    : [{ name: 'No Budget', value: 1 }]
+                                            }
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={62}
+                                            outerRadius={82}
+                                            startAngle={90}
+                                            endAngle={-270}
+                                            dataKey="value"
+                                            strokeWidth={0}
+                                        >
+                                            {budget.allocatedAmount > 0 ? (
+                                                <>
+                                                    <Cell fill="#dc2626" />
+                                                    <Cell fill="#16a34a" />
+                                                </>
+                                            ) : (
+                                                <Cell fill="#e5e7eb" />
+                                            )}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
+                                    <span className="text-xs text-muted-foreground">Budget Used</span>
+                                    <span className="text-xl font-bold leading-tight">
+                                        {budget.allocatedAmount > 0
+                                            ? `${Math.min(100, Math.round(((budget.totalSpent + budget.reservedAmount) / budget.allocatedAmount) * 100))}%`
+                                            : '—'}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* Legend */}
+                            <div className="flex flex-1 flex-col gap-4">
+                                <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30">
+                                    <span className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-red-600" />
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">Total Spent</div>
+                                        <div className="text-lg font-semibold text-red-600">{formatCurrency(budget.totalSpent)}</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900/40 dark:bg-green-950/30">
+                                    <span className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-green-600" />
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">Remaining Budget</div>
+                                        <div className="text-lg font-semibold text-green-600">{formatCurrency(budget.remainingBudget)}</div>
+                                    </div>
+                                </div>
+                                {budget.reservedAmount > 0 && (
+                                    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/30">
+                                        <span className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-amber-500" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Reserved (Pending)</div>
+                                            <div className="text-lg font-semibold text-amber-600">{formatCurrency(budget.reservedAmount)}</div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </CardContent>
