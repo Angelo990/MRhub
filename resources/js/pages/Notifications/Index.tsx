@@ -2,6 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
     getBrowserNotificationPermission,
     requestBrowserNotificationPermission,
@@ -11,7 +12,7 @@ import notificationsRoute from '@/routes/notifications';
 import { type BreadcrumbItem, type NotificationItem, type SharedData } from '@/types';
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Bell, CheckCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, CheckCheck, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 
 interface NotificationHistoryPage {
     data: NotificationItem[];
@@ -31,6 +32,7 @@ interface PageProps {
         type: string[];
         fromDate: string | null;
         toDate: string | null;
+        perPage: number;
     };
     filterOptions: {
         statuses: string[];
@@ -67,11 +69,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function NotificationsIndex() {
     const { notificationHistory, csrf_token, activeFilters, filterOptions } = usePage<SharedData & PageProps>().props;
     const [browserPermission, setBrowserPermission] = useState(getBrowserNotificationPermission());
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [perPage, setPerPage] = useState(String(activeFilters.perPage ?? notificationHistory.per_page ?? 20));
     const [readState, setReadState] = useState<'all' | 'read' | 'unread'>(activeFilters.readState ?? 'all');
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(activeFilters.status ?? []);
     const [selectedTypes, setSelectedTypes] = useState<string[]>(activeFilters.type ?? []);
     const [fromDate, setFromDate] = useState(activeFilters.fromDate ?? '');
     const [toDate, setToDate] = useState(activeFilters.toDate ?? '');
+
+    const activeFilterCount = [
+        readState !== 'all' ? 1 : 0,
+        selectedStatuses.length,
+        selectedTypes.length,
+        fromDate ? 1 : 0,
+        toDate ? 1 : 0,
+    ].reduce((sum, count) => sum + count, 0);
 
     const handleMarkAllRead = async () => {
         await fetch('/notifications/read-all', {
@@ -110,22 +122,51 @@ export default function NotificationsIndex() {
         setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
     };
 
+    const buildQuery = (overrides?: Partial<{
+        readState: 'all' | 'read' | 'unread';
+        status: string[];
+        type: string[];
+        fromDate: string;
+        toDate: string;
+        perPage: string;
+    }>) => {
+        const nextReadState = overrides?.readState ?? readState;
+        const nextStatuses = overrides?.status ?? selectedStatuses;
+        const nextTypes = overrides?.type ?? selectedTypes;
+        const nextFromDate = overrides?.fromDate ?? fromDate;
+        const nextToDate = overrides?.toDate ?? toDate;
+        const nextPerPage = overrides?.perPage ?? perPage;
+
+        return {
+            ...(nextReadState !== 'all' ? { readState: nextReadState } : {}),
+            ...(nextStatuses.length > 0 ? { status: nextStatuses } : {}),
+            ...(nextTypes.length > 0 ? { type: nextTypes } : {}),
+            ...(nextFromDate ? { fromDate: nextFromDate } : {}),
+            ...(nextToDate ? { toDate: nextToDate } : {}),
+            perPage: nextPerPage,
+        };
+    };
+
+    const updatePerPage = (value: string) => {
+        setPerPage(value);
+        router.get(notificationsRoute.index().url, buildQuery({ perPage: value }), {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    };
+
     const applyFilters = () => {
         router.get(
             notificationsRoute.index().url,
-            {
-                readState,
-                status: selectedStatuses,
-                type: selectedTypes,
-                fromDate: fromDate || undefined,
-                toDate: toDate || undefined,
-            },
+            buildQuery(),
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
             },
         );
+        setIsFilterModalOpen(false);
     };
 
     const clearFilters = () => {
@@ -135,11 +176,18 @@ export default function NotificationsIndex() {
         setFromDate('');
         setToDate('');
 
-        router.get(notificationsRoute.index().url, {}, {
+        router.get(notificationsRoute.index().url, buildQuery({
+            readState: 'all',
+            status: [],
+            type: [],
+            fromDate: '',
+            toDate: '',
+        }), {
             preserveScroll: true,
             preserveState: true,
             replace: true,
         });
+        setIsFilterModalOpen(false);
     };
 
     return (
@@ -195,91 +243,137 @@ export default function NotificationsIndex() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        <div className="space-y-4 rounded-xl border p-4">
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <label className="space-y-1 text-sm">
-                                    <span className="font-medium">Read state</span>
+                        <div className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium">Filters</span>
+                                {activeFilterCount > 0 ? (
+                                    <Badge variant="secondary">{activeFilterCount} active</Badge>
+                                ) : (
+                                    <span className="text-sm text-muted-foreground">No active filters</span>
+                                )}
+                                {readState !== 'all' ? <Badge variant="outline">{readState}</Badge> : null}
+                                {selectedStatuses.length > 0 ? <Badge variant="outline">{selectedStatuses.length} status</Badge> : null}
+                                {selectedTypes.length > 0 ? <Badge variant="outline">{selectedTypes.length} type</Badge> : null}
+                                {fromDate || toDate ? <Badge variant="outline">Date range</Badge> : null}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <span>Show</span>
                                     <select
-                                        value={readState}
-                                        onChange={(event) => setReadState(event.target.value as 'all' | 'read' | 'unread')}
-                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                        value={perPage}
+                                        onChange={(event) => updatePerPage(event.target.value)}
+                                        className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
                                     >
-                                        <option value="all">All</option>
-                                        <option value="read">Read</option>
-                                        <option value="unread">Unread</option>
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
                                     </select>
+                                    <span>entries</span>
                                 </label>
-
-                                <label className="space-y-1 text-sm">
-                                    <span className="font-medium">From date</span>
-                                    <input
-                                        type="date"
-                                        value={fromDate}
-                                        onChange={(event) => setFromDate(event.target.value)}
-                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
-                                    />
-                                </label>
-
-                                <label className="space-y-1 text-sm">
-                                    <span className="font-medium">To date</span>
-                                    <input
-                                        type="date"
-                                        value={toDate}
-                                        onChange={(event) => setToDate(event.target.value)}
-                                        className="h-10 w-full rounded-md border border-input bg-background px-3"
-                                    />
-                                </label>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium">Status filters</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {filterOptions.statuses.map((status) => {
-                                            const isChecked = selectedStatuses.includes(status);
-
-                                            return (
-                                                <label key={status} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="sr-only"
-                                                        checked={isChecked}
-                                                        onChange={() => toggleSelection(status, selectedStatuses, setSelectedStatuses)}
-                                                    />
-                                                    {status}
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium">Type filters</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {filterOptions.types.map((type) => {
-                                            const isChecked = selectedTypes.includes(type);
-
-                                            return (
-                                                <label key={type} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="sr-only"
-                                                        checked={isChecked}
-                                                        onChange={() => toggleSelection(type, selectedTypes, setSelectedTypes)}
-                                                    />
-                                                    {prettifyKey(type)}
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                                <Button type="button" onClick={applyFilters}>Apply filters</Button>
-                                <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+                                <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
+                                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                    Filter notifications
+                                </Button>
+                                {activeFilterCount > 0 ? (
+                                    <Button type="button" variant="ghost" onClick={clearFilters}>Clear</Button>
+                                ) : null}
                             </div>
                         </div>
+
+                        <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+                            <DialogContent className="w-[calc(100vw-1.5rem)] max-w-2xl p-0">
+                                <DialogHeader className="border-b border-border/70 px-4 py-3 pr-12 sm:px-6 sm:pr-12">
+                                    <DialogTitle>Filter Notifications</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 px-4 py-4 sm:px-6">
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium">Read state</span>
+                                            <select
+                                                value={readState}
+                                                onChange={(event) => setReadState(event.target.value as 'all' | 'read' | 'unread')}
+                                                className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                            >
+                                                <option value="all">All</option>
+                                                <option value="read">Read</option>
+                                                <option value="unread">Unread</option>
+                                            </select>
+                                        </label>
+
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium">From date</span>
+                                            <input
+                                                type="date"
+                                                value={fromDate}
+                                                onChange={(event) => setFromDate(event.target.value)}
+                                                className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                            />
+                                        </label>
+
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium">To date</span>
+                                            <input
+                                                type="date"
+                                                value={toDate}
+                                                onChange={(event) => setToDate(event.target.value)}
+                                                className="h-10 w-full rounded-md border border-input bg-background px-3"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium">Status filters</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {filterOptions.statuses.map((status) => {
+                                                    const isChecked = selectedStatuses.includes(status);
+
+                                                    return (
+                                                        <label key={status} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="sr-only"
+                                                                checked={isChecked}
+                                                                onChange={() => toggleSelection(status, selectedStatuses, setSelectedStatuses)}
+                                                            />
+                                                            {status}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium">Type filters</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {filterOptions.types.map((type) => {
+                                                    const isChecked = selectedTypes.includes(type);
+
+                                                    return (
+                                                        <label key={type} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="sr-only"
+                                                                checked={isChecked}
+                                                                onChange={() => toggleSelection(type, selectedTypes, setSelectedTypes)}
+                                                            />
+                                                            {prettifyKey(type)}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                        <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+                                        <Button type="button" onClick={applyFilters}>Apply filters</Button>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
 
                         {notificationHistory.data.length > 0 ? (
                             notificationHistory.data.map((notification) => (

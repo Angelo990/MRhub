@@ -13,6 +13,8 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $readState = $request->string('readState')->toString();
+        $perPage = (int) $request->integer('perPage', 20);
+        $perPage = in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 20;
         $statusFilters = collect((array) $request->input('status', []))
             ->filter(fn ($value) => filled($value))
             ->values();
@@ -58,7 +60,7 @@ class NotificationController extends Controller
 
         $notifications = $notificationsQuery
             ->latest()
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn ($notification) => [
                 'id' => $notification->id,
@@ -83,6 +85,7 @@ class NotificationController extends Controller
                 'type' => $typeFilters->values()->all(),
                 'fromDate' => $request->input('fromDate'),
                 'toDate' => $request->input('toDate'),
+                'perPage' => $perPage,
             ],
             'filterOptions' => [
                 'statuses' => [
