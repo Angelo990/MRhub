@@ -15,6 +15,12 @@ class DashboardController extends Controller
     public function __invoke()
     {
         $activeSemester = Semester::current();
+        $driver = DB::connection()->getDriverName();
+        $monthKeyExpression = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            'pgsql' => "to_char(created_at, 'YYYY-MM')",
+            default => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
 
         // ── Summary totals ────────────────────────────────────────────────
         $budgetQuery = DepartmentBudget::query()
@@ -69,7 +75,7 @@ class DashboardController extends Controller
                 $bq->where('semester_id', $activeSemester->id)
             ))
             ->where('type', 'spending')
-            ->selectRaw("strftime('%Y-%m', created_at) as month_key")
+            ->selectRaw("{$monthKeyExpression} as month_key")
             ->selectRaw('SUM(amount) as total')
             ->groupBy('month_key')
             ->orderBy('month_key')
