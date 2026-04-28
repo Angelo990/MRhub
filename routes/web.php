@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     /* -- Finance Routes -- */
     Route::group(['middleware' => ['role:finance']], function () {
         Route::prefix('finance')->name('finance.')->group(function () {
+            Route::get('/budgets', [\App\Http\Controllers\Finance\BudgetController::class, 'index'])->name('budgets.index');
             Route::post('/budgets', [\App\Http\Controllers\Finance\BudgetController::class, 'store'])->name('budgets.store');
             Route::put('/budgets/{budget}', [\App\Http\Controllers\Finance\BudgetController::class, 'update'])->name('budgets.update');
             Route::post('/semesters', [\App\Http\Controllers\Finance\SemesterController::class, 'store'])->name('semesters.store');

@@ -30,7 +30,7 @@ function getRoleNavItems(role: string): NavItem[] {
         case 'finance':
             return [
                 { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-                { title: 'Budgets', href: '/dashboard/finance', icon: Wallet },
+                { title: 'Budgets', href: '/finance/budgets', icon: Wallet },
             ];
         case 'department-head':
             return [
