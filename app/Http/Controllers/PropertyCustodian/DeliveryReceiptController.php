@@ -123,7 +123,12 @@ class DeliveryReceiptController extends Controller
                 ]);
 
                 if (! $reqItem->is_custom && $reqItem->item_id) {
-                    $invItem = Item::findOrFail($reqItem->item_id);
+                    $invItem = Item::whereKey($reqItem->item_id)->lockForUpdate()->firstOrFail();
+
+                    if ((int) $invItem->quantity < $qty) {
+                        throw new \RuntimeException("Insufficient stock available for item ID {$reqItem->item_id}.");
+                    }
+
                     $invItem->quantity -= $qty;
                     $invItem->save();
 
