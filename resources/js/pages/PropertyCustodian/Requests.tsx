@@ -466,7 +466,7 @@ export default function Requests() {
                                                     <span className="font-semibold text-sm">Batch #{batchIdx + 1} — Receipt #{receipt.id}</span>
                                                     <div className="flex gap-2">
                                                         <Button type="button" size="sm" variant="outline" onClick={() => handlePrintReceipt({ ...req!, delivery_receipt: receipt })}>Print</Button>
-                                                        <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptExcel({ ...req!, delivery_receipt: receipt })}>Excel</Button>
+                                                        <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptExcel({ ...req!, delivery_receipt: receipt })}>Export Excel</Button>
                                                         <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptCsv({ ...req!, delivery_receipt: receipt })}>CSV</Button>
                                                         <Button type="button" size="sm" variant="secondary" onClick={() => handleExportReceiptPdf({ ...req!, delivery_receipt: receipt })}>PDF</Button>
                                                     </div>

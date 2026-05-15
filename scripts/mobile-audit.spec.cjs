@@ -32,8 +32,14 @@ async function login(page, email, password) {
     await page.goto(`${baseUrl}/login`, { waitUntil: 'networkidle' });
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
-    await page.locator('form').evaluate((form) => form.requestSubmit());
-    await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 15000 });
+    await page.getByRole('button', { name: /log in/i }).click();
+    try {
+        await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 30000 });
+    } catch (err) {
+        const currentUrl = page.url();
+        const errorText = await page.locator('p[class*="text-destructive"], [class*="error"], p').first().textContent().catch(() => '(could not read error text)');
+        throw new Error(`Login timed out for ${email}. Still at: ${currentUrl}. Visible error: "${errorText}"`);
+    }
     await page.waitForLoadState('networkidle');
 }
 
@@ -91,6 +97,14 @@ test.use({ ...devices['iPhone 13'] });
 
 for (const roleCase of roleCases) {
     test(`${roleCase.label} mobile pages stay within viewport`, async ({ page }) => {
+        const chartWarnings = [];
+        page.on('console', (message) => {
+            const text = message.text();
+            if (isChartSizeWarning(text)) {
+                chartWarnings.push(text);
+            }
+        });
+
         await login(page, roleCase.email, roleCase.password);
 
         for (const path of roleCase.pages) {
@@ -98,6 +112,54 @@ for (const roleCase of roleCases) {
             console.log(JSON.stringify({ role: roleCase.label, path, ...result }));
             expect.soft(result.overflow, `${roleCase.label} ${path} overflowed by ${result.overflow}px`).toBe(0);
             expect.soft(result.offenders, `${roleCase.label} ${path} wide elements: ${JSON.stringify(result.offenders)}`).toEqual([]);
+
+            const modalAudit = await maybeAuditModalLayout(page, path);
+            if (modalAudit && !modalAudit.skipped) {
+                expect.soft(
+                    modalAudit.exceedsViewport,
+                    `${roleCase.label} ${path} modal exceeds viewport: ${JSON.stringify(modalAudit)}`,
+                ).toBe(false);
+            }
+        }
+
+        if (chartWarnings.length > 0) {
+            console.log(JSON.stringify({ role: roleCase.label, chartWarnings }));
         }
     });
+}
+
+function isChartSizeWarning(text) {
+    const normalized = String(text || '').toLowerCase();
+    return normalized.includes('the width') && normalized.includes('and height') && normalized.includes('of chart should be greater than 0');
+}
+
+async function maybeAuditModalLayout(page, path) {
+    if (!['/property-custodian/requests', '/department-head/requests'].includes(path)) {
+        return null;
+    }
+
+    const modalTrigger = page.getByRole('button', { name: /view receipt|release items/i }).first();
+
+    if ((await modalTrigger.count()) === 0) {
+        return { skipped: true, reason: 'no receipt/release modal trigger found on page' };
+    }
+
+    await modalTrigger.click();
+    const dialog = page.locator('[role="dialog"]').first();
+    await expect(dialog).toBeVisible();
+
+    const metrics = await dialog.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const exceedsViewport = rect.width > window.innerWidth + 1 || rect.height > window.innerHeight + 1;
+        return {
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            exceedsViewport,
+        };
+    });
+
+    await page.keyboard.press('Escape');
+    return { skipped: false, ...metrics };
 }

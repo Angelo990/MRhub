@@ -21,6 +21,18 @@ class DashboardController extends Controller
         $from = $httpRequest->string('from')->toString() ?: null;
         $to = $httpRequest->string('to')->toString() ?: null;
 
+        $driver = DB::connection()->getDriverName();
+        $monthKeyExpression = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', date)",
+            'pgsql'  => "to_char(date, 'YYYY-MM')",
+            default  => "DATE_FORMAT(date, '%Y-%m')",
+        };
+        $requestsMonthKeyExpression = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', requests.date)",
+            'pgsql'  => "to_char(requests.date, 'YYYY-MM')",
+            default  => "DATE_FORMAT(requests.date, '%Y-%m')",
+        };
+
         $requestQuery = SupplyRequest::query()
             ->where('department_id', $departmentId)
             ->when($from, fn ($query) => $query->whereDate('date', '>=', $from))
@@ -59,7 +71,7 @@ class DashboardController extends Controller
             ->where('department_id', $departmentId)
             ->when($from, fn ($query) => $query->whereDate('date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('date', '<=', $to))
-            ->selectRaw("DATE_FORMAT(date, '%Y-%m') as month_key")
+            ->selectRaw("{$monthKeyExpression} as month_key")
             ->selectRaw('COUNT(*) as total_requests')
             ->groupBy('month_key')
             ->orderBy('month_key')
@@ -77,7 +89,7 @@ class DashboardController extends Controller
             ->where('requests.department_id', $departmentId)
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-            ->selectRaw("DATE_FORMAT(requests.date, '%Y-%m') as month_key")
+            ->selectRaw("{$requestsMonthKeyExpression} as month_key")
             ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, items.unit_price, 0)), 0) as total_spending')
             ->groupBy('month_key')
             ->orderBy('month_key')
