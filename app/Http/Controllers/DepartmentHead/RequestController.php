@@ -18,10 +18,20 @@ class RequestController extends Controller
     // Mark request as received
     public function markReceived(HttpRequest $httpRequest, \App\Models\Request $request)
     {
+        $user = $httpRequest->user();
+
+        if ($request->department_id !== $user->department_id) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if (! in_array($request->status, ['Released', 'Ready for Pickup'], true)) {
+            abort(422, 'Only released requests can be marked as completed.');
+        }
+
         $request->status = 'Completed';
         $request->save();
 
-        WorkflowNotifier::requestCompleted($request->loadMissing('department'), $httpRequest->user());
+        WorkflowNotifier::requestCompleted($request->loadMissing('department'), $user);
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([

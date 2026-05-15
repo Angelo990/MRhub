@@ -10,6 +10,7 @@ use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\Rule;
 
 class RequestApprovalController extends Controller
 {
@@ -29,7 +30,11 @@ class RequestApprovalController extends Controller
     {
         $data = $httpRequest->validate([
             'rejected_items'          => 'nullable|array',
-            'rejected_items.*.id'     => 'required|integer|exists:request_items,id',
+            'rejected_items.*.id'     => [
+                'required',
+                'integer',
+                Rule::exists('request_items', 'id')->where(fn ($query) => $query->where('request_id', $request->id)),
+            ],
             'rejected_items.*.reason' => 'required|string|max:500',
         ]);
 
