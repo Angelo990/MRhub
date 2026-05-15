@@ -25,6 +25,15 @@ class DeliveryReceiptController extends Controller
     {
         $actor = $httpRequest->user();
 
+        $allowedStatuses = ['Approved', 'Partially Released'];
+        if (! in_array($request->status, $allowedStatuses, true)) {
+            $message = "Cannot release items for a request with status \"{$request->status}\". Only Approved or Partially Released requests may be fulfilled.";
+            if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+                return response()->json(['error' => $message], 422);
+            }
+            return Redirect::back()->withErrors(['error' => $message]);
+        }
+
         $data = $httpRequest->validate([
             'delivery_date'                => 'required|date',
             'prepared_by'                  => 'required|string|max:255',
