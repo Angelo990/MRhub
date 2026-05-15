@@ -64,7 +64,7 @@ class DeliveryReceiptController extends Controller
             $inventoryItem = Item::find($reqItem->item_id);
             if (! $inventoryItem || $inventoryItem->quantity < $line['quantity_to_release']) {
                 $available = $inventoryItem ? $inventoryItem->quantity : 0;
-                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" � requested {$line['quantity_to_release']}, available {$available}."], 422);
+                return response()->json(['error' => "Insufficient stock for \"{$reqItem->particular}\" - requested {$line['quantity_to_release']}, available {$available}."], 422);
             }
         }
 
