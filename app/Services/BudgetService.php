@@ -81,17 +81,36 @@ class BudgetService
      */
     public static function reserve(SupplyRequest $request, User $actor): void
     {
-        $budget = self::activeBudgetForDepartment($request->department_id);
-        if (! $budget) {
-            return; // No budget setup — skip silently (already validated at submission)
-        }
-
         $cost = self::totalCost($request);
         if ($cost <= 0) {
             return;
         }
 
-        DB::transaction(function () use ($budget, $request, $actor, $cost) {
+        $semester = Semester::current();
+        if (! $semester) {
+            return;
+        }
+
+        DB::transaction(function () use ($request, $actor, $cost, $semester) {
+            // Acquire a row-level lock to prevent concurrent endorsements from over-reserving.
+            $budget = DepartmentBudget::where('department_id', $request->department_id)
+                ->where('semester_id', $semester->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $budget) {
+                return; // No budget setup — skip silently (already validated at submission)
+            }
+
+            // Re-check available amount now that we hold the lock.
+            if ($cost > $budget->available_amount) {
+                throw new \RuntimeException(sprintf(
+                    'Insufficient budget at endorsement time: ₱%s required but only ₱%s available.',
+                    number_format($cost, 2),
+                    number_format($budget->available_amount, 2)
+                ));
+            }
+
             $budget->increment('reserved_amount', $cost);
             $budget->refresh();
 

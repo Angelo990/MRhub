@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Services\BudgetService;
 use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 
 class RequestApprovalController extends Controller
@@ -39,12 +40,30 @@ class RequestApprovalController extends Controller
                 ->with('error', 'Only requests pending endorsement can be endorsed.');
         }
 
-        $request->status = 'Pending Approval';
-        $request->locked_at = now();
-        $request->save();
+        $user = $httpRequest->user();
 
-        BudgetService::reserve($request->loadMissing('items'), $httpRequest->user());
-        WorkflowNotifier::requestEndorsed($request->loadMissing('department'), $httpRequest->user());
+        try {
+            DB::transaction(function () use ($request, $user) {
+                $request->status    = 'Pending Approval';
+                $request->locked_at = now();
+                $request->save();
+
+                BudgetService::reserve($request->loadMissing('items'), $user);
+            });
+        } catch (\RuntimeException $e) {
+            if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'request' => $request->refresh()->load(['items', 'department', 'deliveryReceipt.items']),
+                ], 422);
+            }
+
+            return Redirect::route('property-custodian.requests.index')
+                ->with('error', $e->getMessage());
+        }
+
+        WorkflowNotifier::requestEndorsed($request->loadMissing('department'), $user);
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([
