@@ -26,6 +26,19 @@ class RequestApprovalController extends Controller
     // Endorse request to VP Finance
     public function endorse(HttpRequest $httpRequest, Request $request)
     {
+        if ($request->status !== 'Pending Endorsement') {
+            if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only requests pending endorsement can be endorsed.',
+                    'request' => $request->load(['items', 'department', 'deliveryReceipt.items']),
+                ], 409);
+            }
+
+            return Redirect::route('property-custodian.requests.index')
+                ->with('error', 'Only requests pending endorsement can be endorsed.');
+        }
+
         $request->status = 'Pending Approval';
         $request->locked_at = now();
         $request->save();
