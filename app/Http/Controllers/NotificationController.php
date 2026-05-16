@@ -129,7 +129,9 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request)
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $request->user()
+            ->unreadNotifications()
+            ->update(['read_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }

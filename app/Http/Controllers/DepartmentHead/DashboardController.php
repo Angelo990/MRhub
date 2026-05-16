@@ -103,11 +103,11 @@ class DashboardController extends Controller
 
         $requestValue = (float) DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
-            ->join('items', 'items.id', '=', 'request_items.item_id')
+            ->leftJoin('items', 'items.id', '=', 'request_items.item_id')
             ->where('requests.department_id', $departmentId)
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-            ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+            ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, items.unit_price, 0)), 0) as total_cost')
             ->value('total_cost');
 
         $recentRequests = (clone $requestQuery)

@@ -37,8 +37,16 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
             'roles' => 'array',
+            'roles.*' => 'exists:roles,id',
             'department_id' => 'nullable|exists:departments,id',
         ]);
+
+        if (in_array('department-head', $data['roles'] ?? [], true) && empty($data['department_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'department_id' => 'A department is required when assigning the department-head role.',
+            ]);
+        }
+
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],

@@ -78,9 +78,10 @@ class DashboardController extends Controller
             ->selectRaw("{$monthKeyExpression} as month_key")
             ->selectRaw('SUM(amount) as total')
             ->groupBy('month_key')
-            ->orderBy('month_key')
+            ->orderByDesc('month_key')
             ->limit(6)
             ->get()
+            ->sortBy('month_key')
             ->map(fn ($r) => [
                 'name'  => $r->month_key,
                 'total' => (float) $r->total,

@@ -41,25 +41,33 @@ class RequestApprovalController extends Controller
         $actor = $httpRequest->user();
 
         DB::transaction(function () use ($request, $data, $actor) {
+            $lockedRequest = Request::whereKey($request->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedRequest->status !== 'Pending Approval') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'request' => ['Only requests in Pending Approval can be approved.'],
+                ]);
+            }
+
             // Apply per-item rejections
             foreach ($data['rejected_items'] ?? [] as $rejection) {
                 RequestItem::where('id', $rejection['id'])
-                    ->where('request_id', $request->id)
+                    ->where('request_id', $lockedRequest->id)
                     ->update([
                         'rejection_reason' => $rejection['reason'],
                         'rejected_by'      => $actor->name,
                     ]);
             }
 
-            $request->status      = 'Approved';
-            $request->approved_by = $actor->name;
-            $request->save();
+            $lockedRequest->status      = 'Approved';
+            $lockedRequest->approved_by = $actor->name;
+            $lockedRequest->save();
 
             $rejectedIds = collect($data['rejected_items'] ?? [])->pluck('id')->toArray();
-            BudgetService::spend($request->loadMissing('items'), $actor, $rejectedIds);
+            BudgetService::spend($lockedRequest->loadMissing('items'), $actor, $rejectedIds);
         });
 
-        $request->load(['items', 'department']);
+        $request->refresh()->load(['items', 'department']);
 
         WorkflowNotifier::requestApproved($request, $actor);
 
@@ -84,12 +92,39 @@ class RequestApprovalController extends Controller
     // Reject entire request
     public function reject(HttpRequest $httpRequest, Request $request)
     {
-        $request->status = 'Rejected';
-        $request->approved_by = auth()->user()->name;
-        $request->save();
+        $actor = $httpRequest->user();
 
-        BudgetService::release($request->loadMissing('items'), $httpRequest->user());
-        WorkflowNotifier::requestRejected($request->loadMissing('department'), $httpRequest->user());
+        $result = DB::transaction(function () use ($request, $actor, $httpRequest) {
+            $request = Request::whereKey($request->id)->lockForUpdate()->firstOrFail();
+
+            if ($request->status !== 'Pending Approval') {
+                if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Only requests pending approval can be rejected.',
+                    ], 409);
+                }
+
+                return Redirect::back()->withErrors([
+                    'request' => 'Only requests pending approval can be rejected.',
+                ]);
+            }
+
+            $request->status = 'Rejected';
+            $request->approved_by = $actor->name;
+            $request->save();
+
+            BudgetService::release($request->loadMissing('items'), $actor);
+
+            return $request;
+        });
+
+        if ($result instanceof \Illuminate\Http\JsonResponse || $result instanceof \Illuminate\Http\RedirectResponse) {
+            return $result;
+        }
+
+        $request = $result->loadMissing('department');
+        WorkflowNotifier::requestRejected($request, $actor);
 
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([

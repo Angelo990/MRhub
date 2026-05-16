@@ -51,8 +51,8 @@ class DashboardController extends Controller
             'name' => $label,
             'quantity' => (int) StockCardEntry::query()
                 ->where('movement_type', $movementType)
-                ->when($from, fn ($query) => $query->whereDate('created_at', '>=', $from))
-                ->when($to, fn ($query) => $query->whereDate('created_at', '<=', $to))
+                ->when($from, fn ($query) => $query->whereDate('transaction_date', '>=', $from))
+                ->when($to, fn ($query) => $query->whereDate('transaction_date', '<=', $to))
                 ->sum('quantity'),
         ])->values();
 
