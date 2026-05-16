@@ -156,7 +156,8 @@ class NotificationController extends Controller
             return 'danger';
         }
 
-        if (in_array($statusKey, ['pending-endorsement', 'pending-approval', 'partially-released', 'ready-for-pickup'], true)) {
+        if (in_array($statusKey, ['pending-endorsement', 'pending-approval', 'partially-released', 'ready-for-pickup', 'warning'], true)
+            || str_contains($typeKey, 'warning')) {
             return 'warning';
         }
 
