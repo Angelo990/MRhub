@@ -41,9 +41,9 @@ export function DataTableShell<TData extends RowData>({
                                             >
                                                 {flexRender(header.column.columnDef.header, header.getContext())}
                                                 {header.column.getCanSort() && (
-                                                    <span className={`sort-arrows ml-1 ${header.column.getIsSorted() ? 'active' : ''}`}>
-                                                        <span className={`arrow-up${header.column.getIsSorted() === 'asc' ? ' active' : ''}`}></span>
-                                                        <span className={`arrow-down${header.column.getIsSorted() === 'desc' ? ' active' : ''}`}></span>
+                                                    <span className="sort-arrows ml-1">
+                                                        <span className={`arrow arrow-up${header.column.getIsSorted() === 'asc' ? ' sorted' : ''}`}></span>
+                                                        <span className={`arrow arrow-down${header.column.getIsSorted() === 'desc' ? ' sorted' : ''}`}></span>
                                                     </span>
                                                 )}
                                             </div>
