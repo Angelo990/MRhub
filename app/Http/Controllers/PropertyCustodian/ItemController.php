@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\PropertyCustodian;
 
 use App\Models\Item;
+use App\Models\RequestItem;
+use App\Models\DeliveryReceiptItem;
 use App\Models\StockCardEntry;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -105,6 +107,19 @@ class ItemController extends Controller
 
     public function destroy(Request $request, Item $item)
     {
+        $isReferenced = RequestItem::where('item_id', $item->id)->exists()
+            || DeliveryReceiptItem::where('item_id', $item->id)->exists();
+
+        if ($isReferenced) {
+            $message = 'This item cannot be deleted because it is referenced by existing requests or delivery receipts.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return Redirect::back()->withErrors(['item' => $message]);
+        }
+
         $item->delete();
 
         if ($request->expectsJson() || $request->ajax()) {
