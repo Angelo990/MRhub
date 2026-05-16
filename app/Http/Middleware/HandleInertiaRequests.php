@@ -105,7 +105,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         if (in_array($statusKey, ['pending-endorsement', 'pending-approval', 'partially-released', 'ready-for-pickup', 'warning'], true)
-            || str_contains($typeKey, 'warning')) {
+            || in_array($typeKey, ['budget-warning', 'warning'], true)) {
             return 'warning';
         }
 
