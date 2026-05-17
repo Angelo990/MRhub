@@ -29,7 +29,6 @@ class RolePermissionSeeder extends Seeder
             'approve requests',
             'manage inventory',
             'view reports',
-            'manage users',
             
             // Dashboard permissions
             'view property-custodian dashboard',
