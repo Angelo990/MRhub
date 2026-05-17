@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\BudgetTransaction;
 use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -108,6 +109,26 @@ class UserController extends Controller
             }
 
             abort(403, 'You cannot delete your own account.');
+        }
+
+        $hasBudgetTransactions = BudgetTransaction::where('performed_by', $user->id)->exists();
+
+        if ($hasBudgetTransactions) {
+            $message = 'This user cannot be deleted because they have budget transactions. Deactivate the account instead.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                    'errors' => [
+                        'user' => [$message],
+                    ],
+                ], 422);
+            }
+
+            return Redirect::route('admin.users.index')->withErrors([
+                'user' => $message,
+            ]);
         }
 
         $user->delete();
