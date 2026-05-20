@@ -68,11 +68,13 @@ export function printHtmlDocument(title: string, body: string) {
         return;
     }
 
+    const safeTitle = escapeHtml(title);
+
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
             <head>
-                <title>${title}</title>
+                <title>${safeTitle}</title>
                 <style>
                     body {
                         font-family: Arial, sans-serif;
@@ -125,4 +127,13 @@ function escapeCsvValue(value: ExportValue) {
     }
 
     return stringValue;
+}
+
+export function escapeHtml(value: string | number | null | undefined): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

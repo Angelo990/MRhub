@@ -16,7 +16,7 @@ import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
     useReactTable,
@@ -236,12 +236,12 @@ export default function Requests() {
     const handlePrintReport = () => {
         const rows = tableData.map((request) => `
             <tr>
-                <td>${request.date}</td>
-                <td>${request.department.name}</td>
-                <td>${request.purpose}</td>
-                <td>${request.requested_by}</td>
-                <td>${request.status}</td>
-                <td>${request.items.map((item) => `${item.particular} (${item.quantity} ${item.unit})`).join(', ')}</td>
+                <td>${escapeHtml(request.date)}</td>
+                <td>${escapeHtml(request.department.name)}</td>
+                <td>${escapeHtml(request.purpose)}</td>
+                <td>${escapeHtml(request.requested_by)}</td>
+                <td>${escapeHtml(request.status)}</td>
+                <td>${escapeHtml(request.items.map((item) => `${item.particular} (${item.quantity} ${item.unit})`).join(', '))}</td>
             </tr>
         `).join('');
 
@@ -250,7 +250,7 @@ export default function Requests() {
             `
                 <h1>VP Finance Requests Report</h1>
                 <div class="meta">
-                    <p><strong>Total Requests:</strong> ${tableData.length}</p>
+                    <p><strong>Total Requests:</strong> ${escapeHtml(tableData.length)}</p>
                 </div>
                 <table>
                     <thead>

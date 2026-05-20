@@ -95,6 +95,12 @@ export default function MyRequest() {
     const [error, setError] = useState<string | null>(null);
 
     const formatCurrency = (value: number) => `₱ ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const escapeHtml = (value: string | number) => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const requestTotalValue = (req: Request): number =>
         req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
@@ -179,13 +185,20 @@ export default function MyRequest() {
         }
 
         const receipt = request.delivery_receipt;
+        const escapedRequestId = escapeHtml(request.id);
+        const escapedDeliveryDate = escapeHtml(receipt.delivery_date);
+        const escapedPreparedBy = escapeHtml(receipt.prepared_by);
+        const escapedCheckedBy = escapeHtml(receipt.checked_by);
+        const escapedReceivedBy = escapeHtml(receipt.received_by);
+        const escapedStatus = escapeHtml(getDisplayStatus(request.status));
+        const escapedTotal = escapeHtml(formatCurrency(receipt.total));
         const rows = (receipt.items ?? []).map((item) => `
             <tr>
-                <td>${item.particular}</td>
-                <td>${item.quantity_delivered}</td>
-                <td>${item.unit}</td>
-                <td>${formatCurrency(item.unit_cost)}</td>
-                <td>${formatCurrency(item.total)}</td>
+                <td>${escapeHtml(item.particular)}</td>
+                <td>${escapeHtml(item.quantity_delivered)}</td>
+                <td>${escapeHtml(item.unit)}</td>
+                <td>${escapeHtml(formatCurrency(item.unit_cost))}</td>
+                <td>${escapeHtml(formatCurrency(item.total))}</td>
             </tr>
         `).join('');
 
@@ -194,13 +207,13 @@ export default function MyRequest() {
             `
                 <h1>Delivery Receipt</h1>
                 <div class="meta">
-                    <p><strong>Request ID:</strong> ${request.id}</p>
-                    <p><strong>Delivery Date:</strong> ${receipt.delivery_date}</p>
-                    <p><strong>Prepared by:</strong> ${receipt.prepared_by}</p>
-                    <p><strong>Checked & Delivered by:</strong> ${receipt.checked_by}</p>
-                    <p><strong>Received by:</strong> ${receipt.received_by}</p>
-                    <p><strong>Status:</strong> ${getDisplayStatus(request.status)}</p>
-                    <p><strong>Total:</strong> ${formatCurrency(receipt.total)}</p>
+                    <p><strong>Request ID:</strong> ${escapedRequestId}</p>
+                    <p><strong>Delivery Date:</strong> ${escapedDeliveryDate}</p>
+                    <p><strong>Prepared by:</strong> ${escapedPreparedBy}</p>
+                    <p><strong>Checked & Delivered by:</strong> ${escapedCheckedBy}</p>
+                    <p><strong>Received by:</strong> ${escapedReceivedBy}</p>
+                    <p><strong>Status:</strong> ${escapedStatus}</p>
+                    <p><strong>Total:</strong> ${escapedTotal}</p>
                 </div>
                 <table>
                     <thead>

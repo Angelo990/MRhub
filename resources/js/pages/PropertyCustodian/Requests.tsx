@@ -17,7 +17,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 import {
     useReactTable,
@@ -216,13 +216,20 @@ export default function Requests() {
         }
 
         const receipt = request.delivery_receipt;
+        const escapedRequestId = escapeHtml(request.id);
+        const escapedDeliveryDate = escapeHtml(receipt.delivery_date);
+        const escapedPreparedBy = escapeHtml(receipt.prepared_by);
+        const escapedCheckedBy = escapeHtml(receipt.checked_by);
+        const escapedReceivedBy = escapeHtml(receipt.received_by);
+        const escapedStatus = escapeHtml(request.status);
+        const escapedTotal = escapeHtml(formatCurrency(receipt.total));
         const rows = (receipt.items ?? []).map((item) => `
             <tr>
-                <td>${item.particular}</td>
-                <td>${item.quantity_delivered}</td>
-                <td>${item.unit}</td>
-                <td>${formatCurrency(item.unit_cost)}</td>
-                <td>${formatCurrency(item.total)}</td>
+                <td>${escapeHtml(item.particular)}</td>
+                <td>${escapeHtml(item.quantity_delivered)}</td>
+                <td>${escapeHtml(item.unit)}</td>
+                <td>${escapeHtml(formatCurrency(item.unit_cost))}</td>
+                <td>${escapeHtml(formatCurrency(item.total))}</td>
             </tr>
         `).join('');
 
@@ -231,13 +238,13 @@ export default function Requests() {
             `
                 <h1>Delivery Receipt</h1>
                 <div class="meta">
-                    <p><strong>Request ID:</strong> ${request.id}</p>
-                    <p><strong>Delivery Date:</strong> ${receipt.delivery_date}</p>
-                    <p><strong>Prepared by:</strong> ${receipt.prepared_by}</p>
-                    <p><strong>Checked & Delivered by:</strong> ${receipt.checked_by}</p>
-                    <p><strong>Received by:</strong> ${receipt.received_by}</p>
-                    <p><strong>Status:</strong> ${request.status}</p>
-                    <p><strong>Total:</strong> ${formatCurrency(receipt.total)}</p>
+                    <p><strong>Request ID:</strong> ${escapedRequestId}</p>
+                    <p><strong>Delivery Date:</strong> ${escapedDeliveryDate}</p>
+                    <p><strong>Prepared by:</strong> ${escapedPreparedBy}</p>
+                    <p><strong>Checked & Delivered by:</strong> ${escapedCheckedBy}</p>
+                    <p><strong>Received by:</strong> ${escapedReceivedBy}</p>
+                    <p><strong>Status:</strong> ${escapedStatus}</p>
+                    <p><strong>Total:</strong> ${escapedTotal}</p>
                 </div>
                 <table>
                     <thead>

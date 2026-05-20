@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePreset, type DashboardDatePresetId } from '../../lib/dashboard-date-filters';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Calendar, FileDown, FileSpreadsheet, FileText, Pencil, Printer, RotateCcw, Settings2, Download, ChevronUp, ChevronDown } from 'lucide-react';
@@ -193,10 +193,10 @@ export default function Dashboard() {
     const handlePrintDashboard = () => {
         const rows = buildDashboardRows().map((row) => `
             <tr>
-                <td>${row.Section}</td>
-                <td>${row.Label}</td>
-                <td>${row.Value}</td>
-                <td>${row.Detail}</td>
+                <td>${escapeHtml(row.Section)}</td>
+                <td>${escapeHtml(row.Label)}</td>
+                <td>${escapeHtml(row.Value)}</td>
+                <td>${escapeHtml(row.Detail)}</td>
             </tr>
         `).join('');
 
@@ -205,7 +205,7 @@ export default function Dashboard() {
             `
                 <h1>Property Custodian Dashboard Report</h1>
                 <div class="meta">
-                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                    <p><strong>Generated:</strong> ${escapeHtml(new Date().toLocaleString())}</p>
                 </div>
                 <table>
                     <thead>
@@ -480,9 +480,9 @@ export default function Dashboard() {
     const printCard = (title: string, rows: Record<string, string | number>[]) => {
         if (!rows.length) return;
         const headers = Object.keys(rows[0]);
-        const headerHtml = headers.map((h) => `<th>${h}</th>`).join('');
-        const bodyHtml = rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('');
-        printHtmlDocument(title, `<h1>${title}</h1><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`);
+        const headerHtml = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('');
+        const bodyHtml = rows.map((r) => `<tr>${headers.map((h) => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('');
+        printHtmlDocument(title, `<h1>${escapeHtml(title)}</h1><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`);
     };
 
     const handleCardPrint = (card: { id: string; title: string }) => printCard(card.title, cardExportData[card.id]?.() ?? []);

@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { usePage } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { type SharedData } from '@/types';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 interface Item {
     id: number;
@@ -159,15 +159,15 @@ const Inventory: React.FC = () => {
 
             return `
                 <tr>
-                    <td>${isStockIn ? formatDate(entry.transaction_date) : '-'}</td>
-                    <td>${isStockIn ? entry.quantity : '-'}</td>
-                    <td>${isStockIn ? formatCurrency(entry.unit_cost) : '-'}</td>
-                    <td>${isStockIn ? '-' : formatDate(entry.transaction_date)}</td>
-                    <td>${isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? '-')}</td>
-                    <td>${isStockIn ? '-' : entry.quantity}</td>
-                    <td>${isStockIn ? '-' : formatCurrency(entry.unit_cost)}</td>
-                    <td>${formatCurrency(entry.amount)}</td>
-                    <td>${entry.stock_on_hand}</td>
+                    <td>${escapeHtml(isStockIn ? formatDate(entry.transaction_date) : '-')}</td>
+                    <td>${escapeHtml(isStockIn ? entry.quantity : '-')}</td>
+                    <td>${escapeHtml(isStockIn ? formatCurrency(entry.unit_cost) : '-')}</td>
+                    <td>${escapeHtml(isStockIn ? '-' : formatDate(entry.transaction_date))}</td>
+                    <td>${escapeHtml(isStockIn ? (entry.reference ?? 'Stock In') : (entry.party ?? entry.reference ?? '-'))}</td>
+                    <td>${escapeHtml(isStockIn ? '-' : entry.quantity)}</td>
+                    <td>${escapeHtml(isStockIn ? '-' : formatCurrency(entry.unit_cost))}</td>
+                    <td>${escapeHtml(formatCurrency(entry.amount))}</td>
+                    <td>${escapeHtml(entry.stock_on_hand)}</td>
                 </tr>
             `;
         }).join('');
@@ -177,9 +177,9 @@ const Inventory: React.FC = () => {
             `
                 <h1>Stock Card</h1>
                 <div class="meta">
-                    <p><strong>Article:</strong> ${item.name}</p>
-                    <p><strong>Unit:</strong> ${item.unit}</p>
-                    <p><strong>Stock On Hand:</strong> ${item.quantity}</p>
+                    <p><strong>Article:</strong> ${escapeHtml(item.name)}</p>
+                    <p><strong>Unit:</strong> ${escapeHtml(item.unit)}</p>
+                    <p><strong>Stock On Hand:</strong> ${escapeHtml(item.quantity)}</p>
                 </div>
                 <table>
                     <thead>

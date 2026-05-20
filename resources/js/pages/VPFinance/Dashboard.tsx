@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DASHBOARD_DATE_PRESETS, buildDashboardDateRange, detectDashboardDatePreset, type DashboardDatePresetId } from '../../lib/dashboard-date-filters';
 import { normalizeOrder, reorderIds } from '../../lib/dashboard-layout';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Calendar, FileDown, FileSpreadsheet, FileText, Pencil, Printer, RotateCcw, Settings2, Download, ChevronUp, ChevronDown } from 'lucide-react';
@@ -175,41 +175,41 @@ export default function Dashboard() {
     const handlePrintDashboard = () => {
         const summaryRows = metricCards.map((card) => `
             <tr>
-                <td>${card.label}</td>
-                <td>${card.value}</td>
-                <td>${card.description}</td>
+                <td>${escapeHtml(card.label)}</td>
+                <td>${escapeHtml(card.value)}</td>
+                <td>${escapeHtml(card.description)}</td>
             </tr>
         `).join('');
 
         const departmentRows = departmentRequestCost.map((entry) => `
             <tr>
-                <td>${entry.name}</td>
-                <td>${formatCurrency(entry.total)}</td>
+                <td>${escapeHtml(entry.name)}</td>
+                <td>${escapeHtml(formatCurrency(entry.total))}</td>
             </tr>
         `).join('');
 
         const statusRows = costByStatus.map((entry) => `
             <tr>
-                <td>${entry.name}</td>
-                <td>${formatCurrency(entry.total)}</td>
+                <td>${escapeHtml(entry.name)}</td>
+                <td>${escapeHtml(formatCurrency(entry.total))}</td>
             </tr>
         `).join('');
 
         const itemRows = itemRequestCost.map((entry) => `
             <tr>
-                <td>${entry.name}</td>
-                <td>${formatCurrency(entry.total)}</td>
+                <td>${escapeHtml(entry.name)}</td>
+                <td>${escapeHtml(formatCurrency(entry.total))}</td>
             </tr>
         `).join('');
 
         const approvalRows = recentPendingApprovals.map((entry) => `
             <tr>
-                <td>${entry.id}</td>
-                <td>${entry.date}</td>
-                <td>${entry.department}</td>
-                <td>${entry.requestedBy}</td>
-                <td>${entry.itemCount}</td>
-                <td>${formatCurrency(entry.estimatedValue)}</td>
+                <td>${escapeHtml(entry.id)}</td>
+                <td>${escapeHtml(entry.date)}</td>
+                <td>${escapeHtml(entry.department)}</td>
+                <td>${escapeHtml(entry.requestedBy)}</td>
+                <td>${escapeHtml(entry.itemCount)}</td>
+                <td>${escapeHtml(formatCurrency(entry.estimatedValue))}</td>
             </tr>
         `).join('');
 
@@ -218,9 +218,9 @@ export default function Dashboard() {
             `
                 <h1>VP Finance Dashboard Report</h1>
                 <div class="meta">
-                    <p><strong>Total Request Value:</strong> ${formatCurrency(stats.totalRequestValue)}</p>
-                    <p><strong>Pending Approval Value:</strong> ${formatCurrency(stats.pendingApprovalValue)}</p>
-                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                    <p><strong>Total Request Value:</strong> ${escapeHtml(formatCurrency(stats.totalRequestValue))}</p>
+                    <p><strong>Pending Approval Value:</strong> ${escapeHtml(formatCurrency(stats.pendingApprovalValue))}</p>
+                    <p><strong>Generated:</strong> ${escapeHtml(new Date().toLocaleString())}</p>
                 </div>
                 <h2>Summary Cards</h2>
                 <table>
@@ -483,9 +483,9 @@ export default function Dashboard() {
     const printCard = (title: string, rows: Record<string, string | number>[]) => {
         if (!rows.length) return;
         const headers = Object.keys(rows[0]);
-        const headerHtml = headers.map((h) => `<th>${h}</th>`).join('');
-        const bodyHtml = rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('');
-        printHtmlDocument(title, `<h1>${title}</h1><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`);
+        const headerHtml = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('');
+        const bodyHtml = rows.map((r) => `<tr>${headers.map((h) => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('');
+        printHtmlDocument(title, `<h1>${escapeHtml(title)}</h1><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`);
     };
 
     const handleCardPrint = (card: { id: string; title: string }) => printCard(card.title, cardExportData[card.id]?.() ?? []);

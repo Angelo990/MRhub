@@ -17,7 +17,7 @@ import { DataTablePagination, DataTableToolbar } from '@/components/data-table-c
 import { DataTableShell } from '@/components/data-table-shell';
 import { useDataTable } from '@/hooks/use-data-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
+import { escapeHtml, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
 interface Role {
 	id: number;
@@ -106,10 +106,10 @@ const ManageUser: React.FC = () => {
 	const handlePrintReport = () => {
 		const rows = tableData.map((user) => `
 			<tr>
-				<td>${user.name}</td>
-				<td>${user.email}</td>
-				<td>${user.roles.map((role) => role.name).join(', ') || 'No roles'}</td>
-				<td>${user.department?.name ?? '-'}</td>
+				<td>${escapeHtml(user.name)}</td>
+				<td>${escapeHtml(user.email)}</td>
+				<td>${escapeHtml(user.roles.map((role) => role.name).join(', ') || 'No roles')}</td>
+				<td>${escapeHtml(user.department?.name ?? '-')}</td>
 			</tr>
 		`).join('');
 
@@ -118,7 +118,7 @@ const ManageUser: React.FC = () => {
 			`
 				<h1>User Management Report</h1>
 				<div class="meta">
-					<p><strong>Total Users:</strong> ${tableData.length}</p>
+					<p><strong>Total Users:</strong> ${escapeHtml(tableData.length)}</p>
 				</div>
 				<table>
 					<thead>
