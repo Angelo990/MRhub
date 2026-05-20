@@ -28,28 +28,37 @@ export function DataTableShell<TData extends RowData>({
                     <thead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <tr key={headerGroup.id} className="bg-gray-50 dark:bg-gray-800/80">
-                                {headerGroup.headers.map((header) => (
-                                    <th
-                                        key={header.id}
-                                        className={`relative px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200${header.column.columnDef.meta?.className ? ` ${header.column.columnDef.meta.className}` : ''}`}
-                                        colSpan={header.colSpan}
-                                    >
-                                        {header.isPlaceholder ? null : (
-                                            <div
-                                                className={header.column.getCanSort() ? 'flex items-center cursor-pointer select-none' : ''}
-                                                onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                                            >
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                                {header.column.getCanSort() && (
-                                                    <span className="sort-arrows ml-1">
-                                                        <span className={`arrow arrow-up${header.column.getIsSorted() === 'asc' ? ' sorted' : ''}`}></span>
-                                                        <span className={`arrow arrow-down${header.column.getIsSorted() === 'desc' ? ' sorted' : ''}`}></span>
+                                {headerGroup.headers.map((header) => {
+                                    const canSort = header.column.getCanSort();
+                                    const sortedState = header.column.getIsSorted();
+
+                                    return (
+                                        <th
+                                            key={header.id}
+                                            className={`relative px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200${header.column.columnDef.meta?.className ? ` ${header.column.columnDef.meta.className}` : ''}`}
+                                            colSpan={header.colSpan}
+                                        >
+                                            {header.isPlaceholder ? null : canSort ? (
+                                                <button
+                                                    type="button"
+                                                    className="flex items-center cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                                                    onClick={header.column.getToggleSortingHandler()}
+                                                    aria-label={`Sort by ${String(header.column.columnDef.header ?? header.column.id)}`}
+                                                >
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                    <span className="sort-arrows ml-1" aria-hidden="true">
+                                                        <span className={`arrow arrow-up${sortedState === 'asc' ? ' sorted' : ''}`}></span>
+                                                        <span className={`arrow arrow-down${sortedState === 'desc' ? ' sorted' : ''}`}></span>
                                                     </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </th>
-                                ))}
+                                                </button>
+                                            ) : (
+                                                <div className="flex items-center">
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                </div>
+                                            )}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         ))}
                     </thead>
