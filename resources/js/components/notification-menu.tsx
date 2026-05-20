@@ -348,15 +348,86 @@ export function NotificationMenu() {
             </DropdownMenu>
 
             {/* Toast stack — newest at bottom, max 3, danger toasts persist until dismissed */}
-            <div className="fixed right-4 top-20 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+            <div
+                className="fixed right-4 top-20 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+                aria-live="polite"
+                aria-relevant="additions"
+                aria-atomic="false"
+                aria-label="Notification toasts"
+            >
                 {toasts.map((toast) => {
                     const isDanger = !isSynthetic(toast) && (toast as NotificationItem).severityColor === 'danger';
                     const realToast = isSynthetic(toast) ? null : (toast as NotificationItem);
 
-                    return (
+                    return isDanger ? (
                         <div
                             key={toast.id}
-                            className={`rounded-xl border bg-background/95 p-4 shadow-lg backdrop-blur${isDanger ? ' border-red-300' : ''}`}
+                            className="rounded-xl border border-red-300 bg-background/95 p-4 shadow-lg backdrop-blur"
+                            role="alert"
+                            aria-live="assertive"
+                            aria-atomic="true"
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="min-w-0 flex-1 space-y-1">
+                                    <p className="text-sm font-semibold">
+                                        {isSynthetic(toast) ? (
+                                            toast.title
+                                        ) : toast.title.startsWith('[URGENT]') ? (
+                                            <>
+                                                <span className="text-red-600">[URGENT]</span>
+                                                {toast.title.slice(8)}
+                                            </>
+                                        ) : (
+                                            toast.title
+                                        )}
+                                    </p>
+                                    <p className="text-xs leading-5 text-muted-foreground">
+                                        {isSynthetic(toast) ? (
+                                            toast.message
+                                        ) : toast.message.startsWith('[URGENT]') ? (
+                                            <>
+                                                <span className="text-red-600 font-medium">[URGENT]</span>
+                                                {toast.message.slice(8)}
+                                            </>
+                                        ) : (
+                                            toast.message
+                                        )}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                    onClick={() => dismissToast(toast.id)}
+                                    aria-label="Dismiss"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                            {realToast?.actionUrl ? (
+                                <div className="mt-3 flex justify-end gap-2">
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => dismissToast(toast.id)}>
+                                        Later
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => {
+                                            void handleOpenNotification(realToast);
+                                            dismissToast(toast.id);
+                                        }}
+                                    >
+                                        Open
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : (
+                        <div
+                            key={toast.id}
+                            className="rounded-xl border bg-background/95 p-4 shadow-lg backdrop-blur"
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
                         >
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1 space-y-1">
