@@ -112,8 +112,22 @@ class BudgetController extends Controller
     {
         Gate::authorize('update', $budget);
 
+        $minimumAllocated = (float) $budget->reserved_amount + (float) $budget->spent_amount;
+
         $data = $request->validate([
-            'allocated_amount'     => 'required|numeric|min:0',
+            'allocated_amount'     => [
+                'required',
+                'numeric',
+                'min:0',
+                function (string $attribute, mixed $value, \Closure $fail) use ($minimumAllocated) {
+                    if ((float) $value < $minimumAllocated) {
+                        $fail(sprintf(
+                            'Allocated amount cannot be lower than the current committed total (reserved + spent) of PHP %s.',
+                            number_format($minimumAllocated, 2)
+                        ));
+                    }
+                },
+            ],
             'low_budget_threshold' => 'nullable|numeric|min:0',
         ]);
 
