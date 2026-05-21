@@ -106,6 +106,11 @@ class RequestController extends Controller
             if (! $isCustom && ! Item::where('id', $item['item_id'])->exists()) {
                 abort(422, 'Selected inventory item is invalid.');
             }
+            if ($isCustom && (! isset($item['unit_price_at_request']) || (float) $item['unit_price_at_request'] <= 0)) {
+                return back()->withErrors([
+                    "items.{$idx}.unit_price_at_request" => 'Estimated unit price is required for custom items and must be greater than zero.',
+                ])->withInput();
+            }
         }
 
         $inventoryItemIds = collect($data['items'])
@@ -226,13 +231,18 @@ class RequestController extends Controller
             'items.*.unit_price_at_request' => 'nullable|numeric|min:0',
         ]);
 
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $idx => $item) {
             $isCustom = ! empty($item['is_custom']);
             if (! $isCustom && empty($item['item_id'])) {
                 abort(422, 'Inventory item must be selected for non-custom rows.');
             }
             if (! $isCustom && ! Item::where('id', $item['item_id'])->exists()) {
                 abort(422, 'Selected inventory item is invalid.');
+            }
+            if ($isCustom && (! isset($item['unit_price_at_request']) || (float) $item['unit_price_at_request'] <= 0)) {
+                return back()->withErrors([
+                    "items.{$idx}.unit_price_at_request" => 'Estimated unit price is required for custom items and must be greater than zero.',
+                ])->withInput();
             }
         }
 
