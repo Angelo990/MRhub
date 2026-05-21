@@ -20,12 +20,11 @@ class DashboardController extends Controller
         $highestPendingRequest = DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->join('departments', 'departments.id', '=', 'requests.department_id')
-            ->join('items', 'items.id', '=', 'request_items.item_id')
             ->where('requests.status', 'Pending Approval')
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
             ->select('departments.name')
-            ->selectRaw('SUM(request_items.quantity * items.unit_price) as total_cost')
+            ->selectRaw('SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)) as total_cost')
             ->groupBy('requests.id', 'departments.name')
             ->orderByDesc('total_cost')
             ->first();
@@ -33,11 +32,10 @@ class DashboardController extends Controller
         $departmentRequestCost = DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
             ->join('departments', 'departments.id', '=', 'requests.department_id')
-            ->join('items', 'items.id', '=', 'request_items.item_id')
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
             ->select('departments.name')
-            ->selectRaw('SUM(request_items.quantity * items.unit_price) as total_cost')
+            ->selectRaw('SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)) as total_cost')
             ->groupBy('departments.name')
             ->orderByDesc('total_cost')
             ->limit(6)
@@ -50,11 +48,10 @@ class DashboardController extends Controller
 
         $itemRequestCost = DB::table('request_items')
             ->join('requests', 'requests.id', '=', 'request_items.request_id')
-            ->join('items', 'items.id', '=', 'request_items.item_id')
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
             ->select('request_items.particular')
-            ->selectRaw('SUM(request_items.quantity * items.unit_price) as total_cost')
+            ->selectRaw('SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)) as total_cost')
             ->groupBy('request_items.particular')
             ->orderByDesc('total_cost')
             ->limit(8)
@@ -74,11 +71,10 @@ class DashboardController extends Controller
         ])->map(function (string $status) use ($from, $to) {
             $total = DB::table('request_items')
                 ->join('requests', 'requests.id', '=', 'request_items.request_id')
-                ->join('items', 'items.id', '=', 'request_items.item_id')
                 ->where('requests.status', $status)
             ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
             ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-                ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                 ->value('total_cost');
 
             return [
@@ -98,9 +94,8 @@ class DashboardController extends Controller
             ->get()
             ->map(function (SupplyRequest $request) {
                 $estimatedValue = (float) DB::table('request_items')
-                    ->join('items', 'items.id', '=', 'request_items.item_id')
                     ->where('request_items.request_id', $request->id)
-                    ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                    ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                     ->value('total_cost');
 
                 return [
@@ -118,26 +113,23 @@ class DashboardController extends Controller
         $stats = [
             'totalRequestValue' => (float) DB::table('request_items')
                 ->join('requests', 'requests.id', '=', 'request_items.request_id')
-                ->join('items', 'items.id', '=', 'request_items.item_id')
                 ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
                 ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-                ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                 ->value('total_cost'),
             'pendingApprovalValue' => (float) DB::table('request_items')
                 ->join('requests', 'requests.id', '=', 'request_items.request_id')
-                ->join('items', 'items.id', '=', 'request_items.item_id')
                 ->where('requests.status', 'Pending Approval')
                 ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
                 ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-                ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                 ->value('total_cost'),
             'approvedValue' => (float) DB::table('request_items')
                 ->join('requests', 'requests.id', '=', 'request_items.request_id')
-                ->join('items', 'items.id', '=', 'request_items.item_id')
                 ->whereIn('requests.status', ['Approved', 'Released', 'Completed'])
                 ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
                 ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-                ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                 ->value('total_cost'),
             'releasedValue' => (float) DeliveryReceipt::query()
                 ->when($from, fn ($query) => $query->whereDate('delivery_date', '>=', $from))
@@ -145,10 +137,9 @@ class DashboardController extends Controller
                 ->sum('total'),
             'averageRequestValue' => (float) (DB::table('request_items')
                 ->join('requests', 'requests.id', '=', 'request_items.request_id')
-                ->join('items', 'items.id', '=', 'request_items.item_id')
                 ->when($from, fn ($query) => $query->whereDate('requests.date', '>=', $from))
                 ->when($to, fn ($query) => $query->whereDate('requests.date', '<=', $to))
-                ->selectRaw('COALESCE(SUM(request_items.quantity * items.unit_price), 0) as total_cost')
+                ->selectRaw('COALESCE(SUM(request_items.quantity * COALESCE(request_items.unit_price_at_request, 0)), 0) as total_cost')
                 ->value('total_cost') / max(SupplyRequest::query()->when($from, fn ($query) => $query->whereDate('date', '>=', $from))->when($to, fn ($query) => $query->whereDate('date', '<=', $to))->count(), 1)),
             'pendingApprovals' => SupplyRequest::query()->where('status', 'Pending Approval')->when($from, fn ($query) => $query->whereDate('date', '>=', $from))->when($to, fn ($query) => $query->whereDate('date', '<=', $to))->count(),
             'highestPendingRequestValue' => (float) ($highestPendingRequest->total_cost ?? 0),
