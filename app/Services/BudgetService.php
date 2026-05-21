@@ -56,11 +56,12 @@ class BudgetService
             return 'Your department has no budget allocated for the current semester. Contact Finance to allocate a budget.';
         }
 
-        // When re-validating an edit, free up the existing reservation to avoid double-counting
+        // When re-validating an edit, free up the existing reservation to avoid double-counting.
+        // Pending-endorsement edits are still unlocked, so they have no reservation yet.
         $available = $budget->available_amount;
         if ($excludeRequestId !== null) {
             $existing = SupplyRequest::find($excludeRequestId);
-            if ($existing) {
+            if ($existing?->isLocked()) {
                 $available += self::totalCost($existing);
             }
         }
