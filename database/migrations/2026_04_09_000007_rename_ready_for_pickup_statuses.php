@@ -18,12 +18,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('requests')
-            ->where('status', 'Released')
-            ->update(['status' => 'Ready for Pickup']);
-
-        DB::table('delivery_receipts')
-            ->where('status', 'Released')
-            ->update(['status' => 'Ready for Pickup']);
+        // The renamed rows cannot be distinguished from later Released records.
     }
 };
