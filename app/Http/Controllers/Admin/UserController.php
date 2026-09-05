@@ -42,7 +42,7 @@ class UserController extends Controller
             'department_id' => 'nullable|exists:departments,id',
         ]);
 
-        if (in_array('department-head', $data['roles'] ?? [], true) && empty($data['department_id'])) {
+        if ($this->hasDepartmentHeadRole($data['roles'] ?? []) && empty($data['department_id'])) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'department_id' => 'A department is required when assigning the department-head role.',
             ]);
@@ -83,6 +83,13 @@ class UserController extends Controller
             'roles' => 'array',
             'department_id' => 'nullable|exists:departments,id',
         ]);
+
+        if ($this->hasDepartmentHeadRole($data['roles'] ?? []) && empty($data['department_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'department_id' => 'A department is required when assigning the department-head role.',
+            ]);
+        }
+
         $user->name = $data['name'];
         $user->email = $data['email'];
         if (!empty($data['password'])) {
@@ -138,5 +145,17 @@ class UserController extends Controller
         }
 
         return Redirect::route('admin.users.index');
+    }
+
+    private function hasDepartmentHeadRole(array $roles): bool
+    {
+        if (in_array('department-head', $roles, true)) {
+            return true;
+        }
+
+        $roleIds = array_map('intval', array_filter($roles, 'is_numeric'));
+
+        return $roleIds !== []
+            && Role::whereIn('id', $roleIds)->where('name', 'department-head')->exists();
     }
 }
