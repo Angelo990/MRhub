@@ -53,6 +53,7 @@ export function DataTableToolbar({
             <input
                 className="search-input w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm md:max-w-xs dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 placeholder={searchPlaceholder}
+                aria-label="Search"
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
             />
