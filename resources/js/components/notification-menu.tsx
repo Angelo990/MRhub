@@ -193,7 +193,7 @@ export function NotificationMenu() {
     };
 
     const postNotificationAction = async (url: string) => {
-        await fetch(url, {
+        const response = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -202,6 +202,10 @@ export function NotificationMenu() {
                 'X-CSRF-TOKEN': csrf_token,
             },
         });
+
+        if (!response.ok) {
+            throw new Error(`Notification action failed with status ${response.status}.`);
+        }
     };
 
     const markNotificationRead = async (id: string) => {
