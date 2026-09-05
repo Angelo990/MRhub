@@ -59,6 +59,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
                 >
                     <button
                         type="button"
+                        tabIndex={open ? 0 : -1}
                         className="pointer-events-auto flex items-center gap-3 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-md transition-transform duration-150 active:scale-90"
                         onClick={() => {
                             item.onClick();
