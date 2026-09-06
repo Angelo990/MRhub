@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -29,7 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         } elseif ($user->hasRole('finance')) {
             return redirect()->route('dashboard.finance');
         }
-        return Inertia::render('errors/404');
+        abort(403);
     })->name('dashboard');
 
     // Individual dashboards for each role
