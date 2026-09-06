@@ -18,7 +18,7 @@ Artisan::command('notifications:prune-read {--days= : Number of retention days f
 
     $deleted = DatabaseNotification::query()
         ->whereNotNull('read_at')
-        ->where('created_at', '<', $cutoff)
+        ->where('read_at', '<', $cutoff)
         ->delete();
 
     $this->info("Pruned {$deleted} read notifications older than {$days} day(s).");
