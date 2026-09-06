@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Semester;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class SemesterController extends Controller
 {
@@ -14,7 +15,7 @@ class SemesterController extends Controller
         $data = $request->validate([
             'label'     => 'required|string|max:120',
             'year'      => 'required|integer|min:2000',
-            'semester'  => 'required|in:1,2',
+            'semester'  => ['required', 'in:1,2', Rule::unique('semesters', 'semester')->where(fn ($query) => $query->where('year', $request->input('year')))],
             'starts_at' => 'required|date',
             'ends_at'   => 'required|date|after:starts_at',
         ]);
