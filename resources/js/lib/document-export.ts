@@ -121,12 +121,13 @@ export function printHtmlDocument(title: string, body: string) {
 
 function escapeCsvValue(value: ExportValue) {
     const stringValue = value == null ? '' : String(value);
+    const safeValue = typeof value === 'string' && /^[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue;
 
-    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
+    if (safeValue.includes(',') || safeValue.includes('"') || safeValue.includes('\n')) {
+        return `"${safeValue.replace(/"/g, '""')}"`;
     }
 
-    return stringValue;
+    return safeValue;
 }
 
 export function escapeHtml(value: string | number | null | undefined): string {
