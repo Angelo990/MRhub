@@ -15,7 +15,15 @@ import { edit } from '@/routes/password';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Password settings',
+        title: 'Dashboard',
+        href: '/dashboard',
+    },
+    {
+        title: 'Settings',
+        href: edit().url,
+    },
+    {
+        title: 'Password',
         href: edit().url,
     },
 ];
@@ -33,7 +41,7 @@ export default function Password() {
                     <HeadingSmall title="Update password" description="Ensure your account is using a long, random password to stay secure" />
 
                     <Form
-                        {...PasswordController.update.form()}
+                        action={PasswordController.update()}
                         options={{
                             preserveScroll: true,
                         }}

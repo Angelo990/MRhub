@@ -8,6 +8,8 @@
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
+        "mobile:audit:install": "playwright install chromium",
+        "mobile:audit": "npm run build && playwright test --config=playwright.mobile-audit.config.cjs",
         "types": "tsc --noEmit"
     },
     "devDependencies": {
@@ -18,6 +20,7 @@
         "eslint-config-prettier": "^10.0.1",
         "eslint-plugin-react": "^7.37.3",
         "eslint-plugin-react-hooks": "^5.1.0",
+        "playwright": "^1.59.1",
         "prettier": "^3.4.2",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
@@ -40,6 +43,7 @@
         "@radix-ui/react-toggle-group": "^1.1.2",
         "@radix-ui/react-tooltip": "^1.1.8",
         "@tailwindcss/vite": "^4.1.11",
+        "@tanstack/react-table": "^8.21.3",
         "@types/react": "^19.0.3",
         "@types/react-dom": "^19.0.2",
         "@vitejs/plugin-react": "^4.6.0",
@@ -47,15 +51,19 @@
         "clsx": "^2.1.1",
         "concurrently": "^9.0.1",
         "globals": "^15.14.0",
+        "jspdf": "^4.2.1",
+        "jspdf-autotable": "^5.0.7",
         "laravel-vite-plugin": "^2.0",
         "lucide-react": "^0.475.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
+        "recharts": "^3.8.1",
         "tailwind-merge": "^3.0.1",
         "tailwindcss": "^4.0.0",
         "tailwindcss-animate": "^1.0.7",
         "typescript": "^5.7.2",
-        "vite": "^7.0.4"
+        "vite": "^7.0.4",
+        "xlsx": "^0.18.5"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",

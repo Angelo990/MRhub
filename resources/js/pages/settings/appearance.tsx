@@ -10,7 +10,15 @@ import { appearance } from '@/routes';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Appearance settings',
+        title: 'Dashboard',
+        href: '/dashboard',
+    },
+    {
+        title: 'Settings',
+        href: appearance().url,
+    },
+    {
+        title: 'Appearance',
         href: appearance().url,
     },
 ];

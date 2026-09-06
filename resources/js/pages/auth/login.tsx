@@ -6,7 +6,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
-import { register } from '@/routes';
 import { request } from '@/routes/password';
 import { Form, Head } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
@@ -21,7 +20,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         <AuthLayout title="Log in to your account" description="Enter your email and password below to log in">
             <Head title="Log in" />
 
-            <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-6">
+            <Form action={AuthenticatedSessionController.store()} resetOnSuccess={['password']} className="flex flex-col gap-6">
                 {({ processing, errors }) => (
                     <>
                         <div className="grid gap-6">
@@ -70,13 +69,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                                 Log in
                             </Button>
-                        </div>
-
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
                         </div>
                     </>
                 )}

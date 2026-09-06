@@ -139,3 +139,50 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* DataTable sortable header */
+.th-sortable {
+    position: relative;
+}
+/* DataTable sort arrows */
+.sort-arrows {
+    display: inline-flex;
+    flex-direction: column;
+    margin-left: 2px;
+}
+.arrow {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    opacity: 0.3;
+    margin: 0;
+    transition: opacity 0.2s;
+}
+.arrow-up {
+    border-bottom: 6px solid #333;
+    border-top: none;
+}
+.arrow-down {
+    border-top: 6px solid #333;
+    border-bottom: none;
+}
+.arrow.sorted {
+    opacity: 0.9;
+}
+/* DataTable search input width */
+.search-input {
+    max-width: 200px;
+}
+/* 404 Not Found page styles */
+.not-found-page {
+    text-align: center;
+    margin-top: 10vh;
+}
+.not-found-page h1 {
+    font-size: 3rem;
+    color: #e53e3e;
+}
+.not-found-page p {
+    font-size: 1.5rem;
+}
