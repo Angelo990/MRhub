@@ -1,29 +1,30 @@
 const { test, expect, devices } = require('playwright/test');
 
 const baseUrl = 'http://127.0.0.1:8000';
+const auditPassword = process.env.SEEDER_DEFAULT_PASSWORD || 'change-me-demo-only';
 const roleCases = [
     {
         label: 'admin',
         email: 'admin@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         pages: ['/dashboard/admin', '/admin/users'],
     },
     {
         label: 'property-custodian',
         email: 'custodian@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         pages: ['/dashboard/property-custodian', '/property-custodian/items', '/property-custodian/requests'],
     },
     {
         label: 'vp-finance',
         email: 'vpfinance@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         pages: ['/dashboard/vp-finance', '/vp-finance/requests'],
     },
     {
         label: 'department-head',
         email: 'depthead@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         pages: ['/dashboard/department-head', '/department-head/requests', '/department-head/requests/create', '/notifications'],
     },
 ];

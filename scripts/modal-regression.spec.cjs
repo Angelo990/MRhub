@@ -1,6 +1,7 @@
 const { test, expect } = require('playwright/test');
 
 const baseUrl = 'http://127.0.0.1:8000';
+const auditPassword = process.env.SEEDER_DEFAULT_PASSWORD || 'change-me-demo-only';
 
 const orientations = [
     { label: 'portrait', viewport: { width: 390, height: 844 } },
@@ -11,14 +12,14 @@ const modalCases = [
     {
         label: 'property-custodian-receipt-modal',
         email: 'custodian@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         path: '/property-custodian/requests',
         trigger: /view receipt|release items/i,
     },
     {
         label: 'department-head-receipt-modal',
         email: 'depthead@gmail.com',
-        password: '12345678',
+        password: auditPassword,
         path: '/department-head/requests',
         trigger: /view receipt/i,
     },

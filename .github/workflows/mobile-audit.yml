@@ -20,6 +20,7 @@ jobs:
       APP_URL: http://127.0.0.1:8000
       DB_CONNECTION: sqlite
       DB_DATABASE: database/database.sqlite
+      SEEDER_DEFAULT_PASSWORD: change-me-demo-only
 
     steps:
       - name: Checkout
