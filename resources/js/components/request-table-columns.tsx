@@ -45,7 +45,8 @@ export function createDateColumn<TData extends BaseRequestTableRow>(): ColumnDef
 
 export function createDepartmentColumn<TData extends BaseRequestTableRow>(): ColumnDef<TData> {
     return {
-        accessorKey: 'department',
+        id: 'department',
+        accessorFn: (row) => row.department?.name ?? '',
         header: () => 'Department',
         cell: ({ row }) => row.original.department?.name,
     };
