@@ -89,6 +89,8 @@ class NotificationController extends Controller
             ],
             'filterOptions' => [
                 'statuses' => [
+                    'warning',
+                    'info',
                     'Pending Endorsement',
                     'Pending Approval',
                     'Approved',
