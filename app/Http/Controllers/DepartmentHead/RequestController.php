@@ -36,7 +36,7 @@ class RequestController extends Controller
         if ($httpRequest->expectsJson() || $httpRequest->ajax()) {
             return response()->json([
                 'success' => true,
-                'request' => $request->load(['items', 'department', 'deliveryReceipt.items']),
+                'request' => $request->load(['items', 'department', 'deliveryReceipts.items']),
             ]);
         }
 
@@ -48,7 +48,7 @@ class RequestController extends Controller
     {
         $user = auth()->user();
 
-        $requests = Request::with(['items', 'department', 'deliveryReceipt.items'])
+        $requests = Request::with(['items', 'department', 'deliveryReceipts.items'])
             ->where('department_id', $user->department_id)
             ->orderByDesc('is_urgent')
             ->latest()

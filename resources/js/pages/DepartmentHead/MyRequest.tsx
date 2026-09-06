@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table-controls';
+import { DataTableShell } from '@/components/data-table-shell';
+import { createCompactItemsColumn, RequestItemsDialog } from '@/components/request-items-view';
 import {
     createActionsColumn,
     createDateColumn,
@@ -8,23 +8,17 @@ import {
     createPurposeColumn,
     createStatusColumn,
 } from '@/components/request-table-columns';
-import { createCompactItemsColumn, RequestItemsDialog } from '@/components/request-items-view';
-import { DataTableShell } from '@/components/data-table-shell';
-import { useDataTable } from '@/hooks/use-data-table';
-import { usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useDataTable } from '@/hooks/use-data-table';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
+import { router, usePage } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
 import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf, printHtmlDocument } from '../../lib/document-export';
 
-import {
-    useReactTable,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getSortedRowModel,
-    getPaginationRowModel,
-} from '@tanstack/react-table';
 import type { ColumnDef } from '@tanstack/react-table';
+import { getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 
 interface RequestItem {
     id: number;
@@ -71,6 +65,7 @@ interface Request {
     locked_at: string | null;
     items: RequestItem[];
     delivery_receipt?: DeliveryReceipt;
+    delivery_receipts?: DeliveryReceipt[];
 }
 interface PageProps {
     requests: Request[];
@@ -95,15 +90,10 @@ export default function MyRequest() {
     const [error, setError] = useState<string | null>(null);
 
     const formatCurrency = (value: number) => `₱ ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const escapeHtml = (value: string | number) => String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    const escapeHtml = (value: string | number) =>
+        String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-    const requestTotalValue = (req: Request): number =>
-        req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
+    const requestTotalValue = (req: Request): number => req.items.reduce((sum, item) => sum + (item.unit_price_at_request ?? 0) * item.quantity, 0);
     const {
         globalFilter,
         sorting,
@@ -132,16 +122,16 @@ export default function MyRequest() {
         return status;
     };
 
+    const getDeliveryReceipts = (request: Request) => request.delivery_receipts ?? (request.delivery_receipt ? [request.delivery_receipt] : []);
+
+    const getReceiptItems = (request: Request) => getDeliveryReceipts(request).flatMap((receipt) => receipt.items ?? []);
+
     const handleExportReceipt = (request: Request) => {
-        if (!request.delivery_receipt) {
+        if (getDeliveryReceipts(request).length === 0) {
             return;
         }
 
-        exportRowsToExcel(
-            buildReceiptRows(request),
-            'Delivery Receipt',
-            `delivery_receipt_${request.id}.xlsx`,
-        );
+        exportRowsToExcel(buildReceiptRows(request), 'Delivery Receipt', `delivery_receipt_${request.id}.xlsx`);
     };
 
     const handleExportReceiptCsv = (request: Request) => {
@@ -149,12 +139,12 @@ export default function MyRequest() {
     };
 
     const handleExportReceiptPdf = (request: Request) => {
-        if (!request.delivery_receipt) {
+        const receipts = getDeliveryReceipts(request);
+        if (receipts.length === 0) {
             return;
         }
 
-        const receipt = request.delivery_receipt;
-        const rows = (receipt.items ?? []).map((item) => [
+        const rows = getReceiptItems(request).map((item) => [
             item.particular,
             item.quantity_delivered,
             item.unit,
@@ -163,15 +153,12 @@ export default function MyRequest() {
         ]);
 
         exportRowsToPdf(
-            `Delivery Receipt #${receipt.id}`,
+            `Delivery Receipts for Request #${request.id}`,
             [
                 { label: 'Request ID', value: request.id },
-                { label: 'Delivery Date', value: receipt.delivery_date },
-                { label: 'Prepared by', value: receipt.prepared_by },
-                { label: 'Checked & Delivered by', value: receipt.checked_by },
-                { label: 'Received by', value: receipt.received_by },
+                { label: 'Batches', value: receipts.length },
                 { label: 'Status', value: getDisplayStatus(request.status) },
-                { label: 'Total', value: formatCurrency(receipt.total) },
+                { label: 'Total', value: formatCurrency(receipts.reduce((sum, receipt) => sum + receipt.total, 0)) },
             ],
             ['Item', 'Qty', 'Unit', 'Unit Price', 'Total'],
             rows,
@@ -180,19 +167,17 @@ export default function MyRequest() {
     };
 
     const handlePrintReceipt = (request: Request) => {
-        if (!request.delivery_receipt) {
+        const receipts = getDeliveryReceipts(request);
+        if (receipts.length === 0) {
             return;
         }
 
-        const receipt = request.delivery_receipt;
         const escapedRequestId = escapeHtml(request.id);
-        const escapedDeliveryDate = escapeHtml(receipt.delivery_date);
-        const escapedPreparedBy = escapeHtml(receipt.prepared_by);
-        const escapedCheckedBy = escapeHtml(receipt.checked_by);
-        const escapedReceivedBy = escapeHtml(receipt.received_by);
         const escapedStatus = escapeHtml(getDisplayStatus(request.status));
-        const escapedTotal = escapeHtml(formatCurrency(receipt.total));
-        const rows = (receipt.items ?? []).map((item) => `
+        const escapedTotal = escapeHtml(formatCurrency(receipts.reduce((sum, receipt) => sum + receipt.total, 0)));
+        const rows = getReceiptItems(request)
+            .map(
+                (item) => `
             <tr>
                 <td>${escapeHtml(item.particular)}</td>
                 <td>${escapeHtml(item.quantity_delivered)}</td>
@@ -200,18 +185,17 @@ export default function MyRequest() {
                 <td>${escapeHtml(formatCurrency(item.unit_cost))}</td>
                 <td>${escapeHtml(formatCurrency(item.total))}</td>
             </tr>
-        `).join('');
+        `,
+            )
+            .join('');
 
         printHtmlDocument(
-            `Delivery Receipt #${receipt.id}`,
+            `Delivery Receipts for Request #${request.id}`,
             `
-                <h1>Delivery Receipt</h1>
+                <h1>Delivery Receipts</h1>
                 <div class="meta">
                     <p><strong>Request ID:</strong> ${escapedRequestId}</p>
-                    <p><strong>Delivery Date:</strong> ${escapedDeliveryDate}</p>
-                    <p><strong>Prepared by:</strong> ${escapedPreparedBy}</p>
-                    <p><strong>Checked & Delivered by:</strong> ${escapedCheckedBy}</p>
-                    <p><strong>Received by:</strong> ${escapedReceivedBy}</p>
+                    <p><strong>Batches:</strong> ${receipts.length}</p>
                     <p><strong>Status:</strong> ${escapedStatus}</p>
                     <p><strong>Total:</strong> ${escapedTotal}</p>
                 </div>
@@ -231,13 +215,14 @@ export default function MyRequest() {
         );
     };
 
-    const buildReceiptRows = (request: Request) => (request.delivery_receipt?.items ?? []).map((item) => ({
-        Item: item.particular,
-        Qty: item.quantity_delivered,
-        Unit: item.unit,
-        'Unit Price': item.unit_cost,
-        Total: item.total,
-    }));
+    const buildReceiptRows = (request: Request) =>
+        getReceiptItems(request).map((item) => ({
+            Item: item.particular,
+            Qty: item.quantity_delivered,
+            Unit: item.unit,
+            'Unit Price': item.unit_cost,
+            Total: item.total,
+        }));
 
     const handleMarkReceived = async (id: number) => {
         setLoading(true);
@@ -248,7 +233,7 @@ export default function MyRequest() {
                 credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrf_token,
                 },
@@ -261,7 +246,7 @@ export default function MyRequest() {
             }
 
             const payload = (await response.json()) as RequestResponse;
-            setTableData((current) => current.map((request) => request.id === payload.request.id ? payload.request : request));
+            setTableData((current) => current.map((request) => (request.id === payload.request.id ? payload.request : request)));
         } catch (e: unknown) {
             if (e instanceof Error) {
                 setError(e.message);
@@ -271,8 +256,9 @@ export default function MyRequest() {
         }
         setLoading(false);
     };
-        // --- DataTable columns ---
-        const columns: ColumnDef<Request>[] = useMemo(() => [
+    // --- DataTable columns ---
+    const columns: ColumnDef<Request>[] = useMemo(
+        () => [
             createDateColumn<Request>(),
             createDepartmentColumn<Request>(),
             createPurposeColumn<Request>(),
@@ -308,123 +294,147 @@ export default function MyRequest() {
                     )}
                 </div>
             )),
-        ], [handleMarkReceived, loading, requestTotalValue]);
+        ],
+        [handleMarkReceived, loading, requestTotalValue],
+    );
 
-        const table = useReactTable({
-            data: tableData,
-            columns,
-            state: { globalFilter, sorting, pagination },
-            getCoreRowModel: getCoreRowModel(),
-            getFilteredRowModel: getFilteredRowModel(),
-            getSortedRowModel: getSortedRowModel(),
-            getPaginationRowModel: getPaginationRowModel(),
-            onGlobalFilterChange: handleSearchChange,
-            onSortingChange: setSorting,
-            onPaginationChange: setPagination,
-            globalFilterFn,
-        });
+    const table = useReactTable({
+        data: tableData,
+        columns,
+        state: { globalFilter, sorting, pagination },
+        getCoreRowModel: getCoreRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        onGlobalFilterChange: handleSearchChange,
+        onSortingChange: setSorting,
+        onPaginationChange: setPagination,
+        globalFilterFn,
+    });
 
-        const { totalRows, totalPages, showingFrom, showingTo } = getPaginationSummary(table);
+    const { totalRows, totalPages, showingFrom, showingTo } = getPaginationSummary(table);
 
-        return (
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
-                    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h1 className="text-2xl font-bold">My Requests</h1>
-                        <Button variant="default" onClick={() => router.visit('/department-head/requests/create')} className="w-full sm:w-auto">
-                            Create Request
-                        </Button>
-                    </div>
-                    {error && <div className="text-red-500 mb-2">{error}</div>}
-                    <DataTableToolbar
-                        pageSize={pagination.pageSize}
-                        onPageSizeChange={handlePageSizeChange}
-                        searchValue={globalFilter}
-                        onSearchChange={handleSearchChange}
-                    />
-                    <DataTableShell table={table} emptyColSpan={columns.length} emptyMessage="No requests found." />
-                    <DataTablePagination
-                        showingFrom={showingFrom}
-                        showingTo={showingTo}
-                        totalRows={totalRows}
-                        itemLabel="requests"
-                        onFirst={() => table.setPageIndex(0)}
-                        onPrev={() => table.previousPage()}
-                        onNext={() => table.nextPage()}
-                        onLast={() => table.setPageIndex(totalPages - 1)}
-                        canPrevious={table.getCanPreviousPage()}
-                        canNext={table.getCanNextPage()}
-                    />
-                    {/* ...existing code for Dialog, etc... */}
-                {openReceipt && (() => {
-                    const req = tableData.find(r => r.id === openReceipt);
-                    const receipt = req?.delivery_receipt;
-                    return (
-                        <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
-                            <DialogContent className="flex w-[calc(100vw-1.5rem)] max-h-[85vh] max-w-4xl flex-col overflow-hidden p-0">
-                                <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
-                                    <DialogTitle>Delivery Receipt</DialogTitle>
-                                </DialogHeader>
-                                <div data-modal-body className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                                {receipt ? (
-                                    <div className="space-y-3">
-                                        <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
-                                            <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
-                                                Print
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceipt(req)}>
-                                                Export Excel
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptCsv(req)}>
-                                                Export CSV
-                                            </Button>
-                                            <Button type="button" variant="secondary" onClick={() => handleExportReceiptPdf(req)}>
-                                                Export PDF
-                                            </Button>
-                                        </div>
-                                        <div><strong>Delivery Date:</strong> {receipt.delivery_date}</div>
-                                        <div><strong>Prepared by:</strong> {receipt.prepared_by}</div>
-                                        <div><strong>Checked & Delivered by:</strong> {receipt.checked_by}</div>
-                                        <div><strong>Received by:</strong> {receipt.received_by}</div>
-                                        <div><strong>Status:</strong> {getDisplayStatus(req.status)}</div>
-                                        <div><strong>Total:</strong> {formatCurrency(receipt.total)}</div>
-                                        <div className="font-semibold mt-2">Items</div>
-                                        <div data-receipt-table-wrapper className="max-h-[38vh] overflow-y-auto overflow-x-auto rounded border border-border/70 bg-background md:overflow-x-hidden">
-                                            <table className="w-full min-w-[640px] text-sm md:min-w-0">
-                                                <thead className="bg-muted/30">
-                                                    <tr>
-                                                        <th className="px-3 py-2 text-left">Item</th>
-                                                        <th className="px-3 py-2 text-right">Qty</th>
-                                                        <th className="px-3 py-2 text-left">Unit</th>
-                                                        <th className="px-3 py-2 text-right">Unit Price</th>
-                                                        <th className="px-3 py-2 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {receipt.items?.map((item: ReceiptItem) => (
-                                                        <tr key={item.id}>
-                                                            <td className="px-3 py-2">{item.particular}</td>
-                                                            <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
-                                                            <td className="px-3 py-2">{item.unit}</td>
-                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
-                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <div className="flex flex-col gap-4 p-4 dark:bg-gray-900 dark:text-white">
+                <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h1 className="text-2xl font-bold">My Requests</h1>
+                    <Button variant="default" onClick={() => router.visit('/department-head/requests/create')} className="w-full sm:w-auto">
+                        Create Request
+                    </Button>
+                </div>
+                {error && <div className="mb-2 text-red-500">{error}</div>}
+                <DataTableToolbar
+                    pageSize={pagination.pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    searchValue={globalFilter}
+                    onSearchChange={handleSearchChange}
+                />
+                <DataTableShell table={table} emptyColSpan={columns.length} emptyMessage="No requests found." />
+                <DataTablePagination
+                    showingFrom={showingFrom}
+                    showingTo={showingTo}
+                    totalRows={totalRows}
+                    itemLabel="requests"
+                    onFirst={() => table.setPageIndex(0)}
+                    onPrev={() => table.previousPage()}
+                    onNext={() => table.nextPage()}
+                    onLast={() => table.setPageIndex(totalPages - 1)}
+                    canPrevious={table.getCanPreviousPage()}
+                    canNext={table.getCanNextPage()}
+                />
+                {/* ...existing code for Dialog, etc... */}
+                {openReceipt &&
+                    (() => {
+                        const req = tableData.find((r) => r.id === openReceipt);
+                        const receipts = req ? getDeliveryReceipts(req) : [];
+                        return (
+                            <Dialog open={!!openReceipt} onOpenChange={() => setOpenReceipt(null)}>
+                                <DialogContent className="flex max-h-[85vh] w-[calc(100vw-1.5rem)] max-w-4xl flex-col overflow-hidden p-0">
+                                    <DialogHeader className="sticky top-0 z-10 shrink-0 border-b border-border/70 bg-background px-4 py-3 pr-12 sm:px-6">
+                                        <DialogTitle>Delivery Receipt</DialogTitle>
+                                    </DialogHeader>
+                                    <div data-modal-body className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                                        {req && receipts.length > 0 ? (
+                                            <div className="space-y-6">
+                                                <div className="flex flex-wrap justify-end gap-2 max-sm:[&>button]:flex-1">
+                                                    <Button type="button" variant="outline" onClick={() => handlePrintReceipt(req)}>
+                                                        Print
+                                                    </Button>
+                                                    <Button type="button" variant="secondary" onClick={() => handleExportReceipt(req)}>
+                                                        Export Excel
+                                                    </Button>
+                                                    <Button type="button" variant="secondary" onClick={() => handleExportReceiptCsv(req)}>
+                                                        Export CSV
+                                                    </Button>
+                                                    <Button type="button" variant="secondary" onClick={() => handleExportReceiptPdf(req)}>
+                                                        Export PDF
+                                                    </Button>
+                                                </div>
+                                                {receipts.map((receipt, batchIndex) => (
+                                                    <div key={receipt.id} className="rounded-lg border border-border/70">
+                                                        <div className="border-b border-border/70 bg-muted/30 px-4 py-3 font-semibold">
+                                                            Batch #{batchIndex + 1} - Receipt #{receipt.id}
+                                                        </div>
+                                                        <div className="space-y-1 px-4 py-3 text-sm">
+                                                            <div>
+                                                                <strong>Delivery Date:</strong> {receipt.delivery_date}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Prepared by:</strong> {receipt.prepared_by}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Checked & Delivered by:</strong> {receipt.checked_by}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Received by:</strong> {receipt.received_by}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Batch Total:</strong> {formatCurrency(receipt.total)}
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            data-receipt-table-wrapper
+                                                            className="max-h-[38vh] overflow-x-auto overflow-y-auto px-4 pb-4 md:overflow-x-hidden"
+                                                        >
+                                                            <table className="w-full min-w-[640px] text-sm md:min-w-0">
+                                                                <thead className="bg-muted/30">
+                                                                    <tr>
+                                                                        <th className="px-3 py-2 text-left">Item</th>
+                                                                        <th className="px-3 py-2 text-right">Qty</th>
+                                                                        <th className="px-3 py-2 text-left">Unit</th>
+                                                                        <th className="px-3 py-2 text-right">Unit Price</th>
+                                                                        <th className="px-3 py-2 text-right">Total</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {receipt.items?.map((item) => (
+                                                                        <tr key={item.id}>
+                                                                            <td className="px-3 py-2">{item.particular}</td>
+                                                                            <td className="px-3 py-2 text-right">{item.quantity_delivered}</td>
+                                                                            <td className="px-3 py-2">{item.unit}</td>
+                                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unit_cost)}</td>
+                                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.total)}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div>No receipt found.</div>
+                                        )}
                                     </div>
-                                ) : (
-                                    <div>No receipt found.</div>
-                                )}
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    );
-                })()}
-                    {/* View Items dialog */}
-                    {viewItemsRequest && (() => {
-                        const req = tableData.find(r => r.id === viewItemsRequest) ?? null;
+                                </DialogContent>
+                            </Dialog>
+                        );
+                    })()}
+                {/* View Items dialog */}
+                {viewItemsRequest &&
+                    (() => {
+                        const req = tableData.find((r) => r.id === viewItemsRequest) ?? null;
                         return (
                             <RequestItemsDialog
                                 request={req}
