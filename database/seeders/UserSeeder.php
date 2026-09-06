@@ -14,6 +14,18 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            $this->command?->warn('Skipping demo user accounts in production.');
+
+            return;
+        }
+
+        $defaultPassword = env('SEEDER_DEFAULT_PASSWORD');
+
+        if (! is_string($defaultPassword) || $defaultPassword === '') {
+            throw new \RuntimeException('SEEDER_DEFAULT_PASSWORD must be set for demo user seeding.');
+        }
+
         $csitDepartmentId = Department::where('name', 'CSIT')->value('id');
 
         $users = [
@@ -54,7 +66,7 @@ class UserSeeder extends Seeder
                 ['email' => $seededUser['email']],
                 [
                     'name' => $seededUser['name'],
-                    'password' => Hash::make('12345678'),
+                    'password' => Hash::make($defaultPassword),
                     'department_id' => $seededUser['department_id'],
                     'email_verified_at' => now(),
                 ],
